@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # reg.py script creates a register
 # To call this script in a Verilog file it should follow one of the following patterns:
@@ -14,7 +14,7 @@
 
 import sys, re
 
-from vt_colours import *
+from VeriSnip.vs_colours import *
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 vs_name = f"reg_{vs_name_suffix}.vs"

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # axil_interface.py script creates required AXIL IOs and logic.
 # To call this script in a Verilog file it should follow one of the following patterns:
@@ -6,11 +6,11 @@
 # If there is a comma (",") after the include and before the comment than this are not the last inputs/outputs (IOs) of the module.
 
 import subprocess
-from vt_build import (
+from VeriSnip.vs_build import (
     find_verilog_and_scripts,
     find_filename_in_list,
 )
-from vt_colours import *
+from VeriSnip.vs_colours import *
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 vs_name = f"axil_interface_{vs_name_suffix}.vs"

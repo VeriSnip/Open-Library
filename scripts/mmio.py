@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # mmio.py script creates memory mapped registers
 # To call this script in a Verilog file it should follow one of the following patterns:
@@ -12,11 +12,11 @@
 # It depends on: reg.py; generated_wires.py.
 
 import subprocess
-from vt_build import (
+from VeriSnip.vs_build import (
     find_verilog_and_scripts,
     find_filename_in_list,
 )
-from vt_colours import *
+from VeriSnip.vs_colours import *
 from reg import register
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")

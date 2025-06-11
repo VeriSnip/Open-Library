@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # instantiate.py script creates the instantiation of a module
 # To call this script in a Verilog file it should follow one of the following patterns:
@@ -8,13 +8,13 @@
 
 import sys, os, re
 import subprocess
-from vt_build import (
+from VeriSnip.vs_build import (
     find_verilog_and_scripts,
     find_or_generate,
     find_filename_in_list,
     substitute_vs_file,
 )
-from vt_colours import *
+from VeriSnip.vs_colours import *
 from generated_wires import string_eval_arithmetic
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")

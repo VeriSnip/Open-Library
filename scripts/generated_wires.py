@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # generated_wires.py script creates wires and "reg" signals
 # To call this script in a Verilog file it should follow one of the following patterns:
@@ -12,7 +12,7 @@
 # When called from another script an additional argument can passed to create "reg" type signals instead of "wires".
 
 import re
-from vt_colours import *
+from VeriSnip.vs_colours import *
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 vs_name = f"generated_wires_{vs_name_suffix}.vs"
