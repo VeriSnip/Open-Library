@@ -194,7 +194,7 @@ def module_definition_content(current_directory):
 
     script_files, verilog_files = find_verilog_and_scripts(current_directory)
     sources_list, verilog_files = find_or_generate(
-        "", [module], script_files, verilog_files, sources_list
+        current_directory, "", [module], script_files, verilog_files, sources_list
     )
 
     if sources_list == []:
@@ -220,7 +220,7 @@ def module_definition_content(current_directory):
     include_matches = re.findall(include_pattern, module_text)
     for include in include_matches:
         sources_list, verilog_files = find_or_generate(
-            filename, include, script_files, verilog_files, sources_list
+            current_directory, filename, include, script_files, verilog_files, sources_list
         )
 
     new_content = ""
