@@ -77,7 +77,7 @@ class register:
     def set_reg_rst(self, reg_rst):
         if "rst=" in reg_rst:
             reg_rst = reg_rst.split("=")[1]
-        if (reg_rst == "") or (reg_rst == "None"):
+        if (reg_rst == "") or (reg_rst == "None") or (reg_rst == "1'b0"):
             self.rst = None
         elif reg_rst.startswith("_"):
             self.rst = f"{self.name}{reg_rst}"
@@ -87,7 +87,7 @@ class register:
     def set_reg_en(self, reg_en):
         if "en=" in reg_en:
             reg_en = reg_en.split("=")[1]
-        if (reg_en == "") or (reg_en == "None"):
+        if (reg_en == "") or (reg_en == "None") or (reg_en == "1'b1"):
             self.en = None
         elif reg_en.startswith("_"):
             self.en = f"{self.name}{reg_en}"
@@ -111,7 +111,7 @@ def write_vs(string="", file_name="reg.vs"):
 
 
 def reg_description(reg_list):
-    verilog_code = f"  // Automatically generated {vs_name_suffix} register file\n"
+    verilog_code = f"  // Automatically generated register {vs_name_suffix}\n"
     verilog_code += "  always @(posedge clk_i, posedge arst_i) begin\n"
     verilog_code += "    if (arst_i) begin\n"
     for reg in reg_list:
