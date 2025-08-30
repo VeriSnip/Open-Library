@@ -20,10 +20,9 @@ def write_vs(string="", file_name=None):
 
 
 def verilog_string(counter_width, enable, reset):
-    counter_name = f"counter_{vs_name_suffix}"
-    verilog_code = f"  // Automatically generated {counter_name}\n"
-    verilog_code += f'  `include "reg_{counter_name}.vs" // {counter_width}, 0, {reset}, {enable}, {counter_name}_next\n'
-    verilog_code += f'  assign {counter_name}_next = {counter_name} + 1;\n'
+    verilog_code = f"  // Automatically generated {vs_name_suffix}\n"
+    verilog_code += f'  `include "reg_{vs_name_suffix}.vs" // {counter_width}, 0, {reset}, {enable}, {vs_name_suffix}_next\n'
+    verilog_code += f'  assign {vs_name_suffix}_next = {vs_name_suffix} + 1;\n'
     return verilog_code
 
 
