@@ -36,15 +36,15 @@ def parse_arguments():
     if has_double_slash:
         args = sys.argv[2][sys.argv[2].index("//")+2:].split(',')
         if len(args) == 3:
-            counter_width = int(args[0].strip())
+            counter_width = args[0].strip()
             enable = args[1].strip()
             reset = args[2].strip()
         elif len(args) == 2:
-            counter_width = int(args[0].strip())
+            counter_width = args[0].strip()
             enable = args[1].strip()
             reset = "1'b0"
         elif len(args) == 1:
-            counter_width = int(args[0].strip())
+            counter_width = args[0].strip()
             enable = "1'b1"
             reset = "1'b0"
         else:
