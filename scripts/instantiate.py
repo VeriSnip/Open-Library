@@ -4,7 +4,6 @@
 # To call this script in a Verilog file it should follow one of the following patterns:
 #   `include "instantiate_{module}_{module_name}.vs" // prefix="prefix" suffix="suffix" {port_name}="connected signal"
 # Default values are: prefix = "{module_name}_"; suffix = ""; {port_name} = "{prefix}{port_name}{suffix}".
-# It depends on: generated_wires.py.
 
 import sys, os, re
 import subprocess
@@ -15,7 +14,6 @@ from VeriSnip.vs_build import (
     substitute_vs_file,
 )
 from VeriSnip.vs_colours import *
-from generated_wires import string_eval_arithmetic
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 vs_name = f"instantiate_{vs_name_suffix}.vs"
@@ -73,22 +71,24 @@ def update_module_text(module_text, prefix):
         module_ports[-1] = module_ports[-1].replace(",", "")
         ports_text = "\n".join(module_ports)
 
-    generate_io_wires(module_new_ports)
+    generate_io_signals(module_new_ports)
 
 
-def generate_io_wires(io_dictionary):
-    generate_wires = ""
+def generate_io_signals(io_dictionary):
+    generated_signals = f"  // Automatically generated signals for {vs_name_suffix} instantiation\n"
     for io_name in io_dictionary:
         match = re.search(r".*?\[(.*?):.*?\].*?", io_dictionary[io_name])
         if match:
             io_size = string_eval_arithmetic(f"{match.group(1).strip()}+1")
         else:
             io_size = ""
-        generate_wires += f"{io_name}, {io_size}\n"
-    scripts, _ = find_verilog_and_scripts(current_directory)
-    script_path = find_filename_in_list("generated_wires.py", scripts)
-    script_arguments = ["python", script_path, callee_module, generate_wires]
-    subprocess.run(script_arguments)
+        generated_signals += f"  wire {io_name};\n" if io_size == "" else f"  wire [{io_size}-1:0] {io_name};\n"
+    generated_signals += "\n"
+
+    generated_signals_file = f"{sys.argv[4]}_generated_signals.vs"
+    with open(generated_signals_file, "a") as file:
+        file.write(generated_signals)
+    return
 
 
 def extract_comment(line):

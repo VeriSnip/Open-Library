@@ -9,9 +9,9 @@
 #   ...
 #   */
 # Default values are: Size = 1 bit; Reset Value = 0; Reg_reset = None; Reg_enable = None; Reg_next = {Reg_name}_n; Access Type = "R/W"; Default Value = Reg_name.
-# It depends on: reg.py; generated_wires.py.
 
 import subprocess
+import sys
 from VeriSnip.vs_build import (
     find_verilog_and_scripts,
     find_filename_in_list,
@@ -180,32 +180,29 @@ def read_registers_desc(mm_reg_list):
     return r_desc
 
 
-def generate_mmio_wires(mm_reg_list):
-    current_directory = os.getcwd()
-    regs = "r_data, DATA_WIDTH\n"
-    wires = "w_data, DATA_WIDTH\n"
-    wires += "r_address, ADDR_WIDTH\n"
-    wires += "w_address, ADDR_WIDTH\n"
-    wires += "r_enable, \n"
-    wires += "w_enable, \n"
+def generate_mmio_signals(mm_reg_list):
+    signal_content = "  // Additional signals for memory mapped registers\n"
+    signal_content += "  reg [DATA_WIDTH-1:0] r_data;\n"
+    signal_content += "  wire [DATA_WIDTH-1:0] w_data;\n"
+    signal_content += "  wire [ADDR_WIDTH-1:0] r_address;\n"
+    signal_content += "  wire [ADDR_WIDTH-1:0] w_address;\n"
+    signal_content += "  wire r_enable;\n"
+    signal_content += "  wire w_enable;\n"
     for mm_reg in mm_reg_list:
         if "W" in mm_reg.access_type:
-            wires += f"{mm_reg.w_sel}, \n"
+            signal_content += f"  wire {mm_reg.w_sel};\n"
         if "R" in mm_reg.access_type:
-            wires += f"{mm_reg.r_sel}, \n"
-        regs += f"{mm_reg.reg.next}, {mm_reg.reg.size}\n"
-        regs += f"{mm_reg.reg.signal}, {mm_reg.reg.size}\n"
-    scripts, _ = find_verilog_and_scripts(current_directory)
-    script_path = find_filename_in_list("generated_wires.py", scripts)
-    script_arguments = ["python", script_path, vs_name_suffix, wires]
-    subprocess.run(script_arguments)
-    script_arguments = ["python", script_path, vs_name_suffix, regs, "variable"]
-    subprocess.run(script_arguments)
-
+            signal_content += f"  wire {mm_reg.r_sel};\n"
+        signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.signal};\n"
+        signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.next};\n"
+    signal_content += "\n"
+    generated_signals_file = f"{sys.argv[4]}_generated_signals.vs"
+    with open(generated_signals_file, "a") as file:
+        file.write(signal_content)
 
 def create_vs(reg_list):
     vs_content = f"  // Automatically generated memory mapped registers interface for {vs_name_suffix}\n"
-    generate_mmio_wires(reg_list)
+    generate_mmio_signals(reg_list)
     vs_content += sel_registers_desc(reg_list)
     vs_content += write_registers_desc(reg_list)
     vs_content += read_registers_desc(reg_list)
