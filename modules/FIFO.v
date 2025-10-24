@@ -1,8 +1,8 @@
 `timescale 1ns / 1ps
 
 module FIFO #(
-    parameter int WIDTH = 8,
-    parameter int DEPTH = 16
+    parameter integer WIDTH = 8,
+    parameter integer DEPTH = 16
 ) (
     input wire clk_i,
     input wire rst_i,

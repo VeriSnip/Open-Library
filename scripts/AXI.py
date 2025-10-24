@@ -15,29 +15,36 @@ from VeriSnip.vs_build import (
 )
 from VeriSnip.vs_colours import *
 
+
 class AXIInterface:
     def __init__(self, vs_name_suffix):
         self.vs_name_suffix = vs_name_suffix
         try:
             if "stream_s" in vs_name_suffix:
-                self.type = 'stream'
-                self.node_type = 'slave'
+                self.type = "stream"
+                self.node_type = "slave"
             elif "stream_m" in vs_name_suffix:
-                self.type = 'stream'
-                self.node_type = 'master'
+                self.type = "stream"
+                self.node_type = "master"
             elif "lite_s" in vs_name_suffix:
-                self.type = 'lite'
-                self.node_type = 'slave'
+                self.type = "lite"
+                self.node_type = "slave"
             elif "lite_m" in vs_name_suffix:
-                self.type = 'lite'
-                self.node_type = 'master'
+                self.type = "lite"
+                self.node_type = "master"
+            elif "s" in vs_name_suffix:
+                self.type = "full"
+                self.node_type = "slave"
+            elif "m" in vs_name_suffix:
+                self.type = "full"
+                self.node_type = "master"
             else:
                 raise ValueError
         except ValueError:
             print_coloured(ERROR, f"Invalid vs_name_suffix: {vs_name_suffix}")
             exit(1)
 
-        if self.type not in ['lite', 'stream']:
+        if self.type not in ["lite", "stream"]:
             print_coloured(ERROR, f"Invalid AXI type: {self.type}")
             exit(1)
 
@@ -46,21 +53,21 @@ class AXIInterface:
         logic_content = ""
         signals_content = ""
 
-        if self.type == 'lite':
-            if self.node_type == 'slave':
+        if self.type == "lite":
+            if self.node_type == "slave":
                 ios_content = get_lite_slave_ios(last_ios)
                 logic_content = get_lite_slave_logic(self.vs_name_suffix)
                 signals_content = get_lite_slave_signals()
-            else: # master
+            else:  # master
                 ios_content = get_lite_master_ios(last_ios)
                 logic_content = get_lite_master_logic()
                 signals_content = get_lite_master_signals()
-        else: # stream
-            if self.node_type == 'slave':
+        else:  # stream
+            if self.node_type == "slave":
                 ios_content = get_stream_slave_ios(last_ios)
                 logic_content = get_stream_slave_logic()
                 signals_content = get_stream_slave_signals()
-            else: # master
+            else:  # master
                 ios_content = get_stream_master_ios(last_ios)
                 logic_content = get_stream_master_logic()
                 signals_content = get_stream_master_signals()
@@ -73,6 +80,7 @@ class AXIInterface:
             with open(f"{sys.argv[4]}_generated_signals.vs", "a") as f:
                 f.write("// AXI Signals\n")
                 f.write(signals_content)
+
 
 def get_lite_slave_ios(last_ios=False):
     return f"""
@@ -96,6 +104,7 @@ def get_lite_slave_ios(last_ios=False):
     output  reg [DATA_WIDTH-1:0] AXIL_rdata_o,
     output wire [1:0] AXIL_rresp_o{',' if last_ios else ''}
 """
+
 
 def get_lite_slave_logic(vs_name_suffix=None):
     return f"""
@@ -125,6 +134,7 @@ def get_lite_slave_logic(vs_name_suffix=None):
     */
 """
 
+
 def get_lite_slave_signals():
     return """
   // Additional signals for AXI-Lite Slave
@@ -141,6 +151,7 @@ def get_lite_slave_signals():
   wire [ADDR_WIDTH-1:0] r_address;
   wire r_enable;
 """
+
 
 def get_lite_master_ios(last_ios=False):
     return f"""
@@ -165,13 +176,19 @@ def get_lite_master_ios(last_ios=False):
     input  wire [1:0] AXIL_rresp_i{',' if last_ios else ''}
 """
 
+
 def get_lite_master_logic():
     print_coloured(ERROR, "AXI-Lite Master logic generation is not implemented yet.")
     return ""
 
+
 def get_lite_master_signals():
-    print_coloured(INFO, "AXI-Lite Master signals generation is not implemented yet, generating empty file.")
+    print_coloured(
+        INFO,
+        "AXI-Lite Master signals generation is not implemented yet, generating empty file.",
+    )
     return ""
+
 
 def get_stream_slave_ios(last_ios=False):
     return f"""
@@ -182,13 +199,22 @@ def get_stream_slave_ios(last_ios=False):
     output wire AXIS_tready_o{',' if last_ios else ''}
 """
 
+
 def get_stream_slave_logic():
-    print_coloured(INFO, "AXI-Stream Slave logic generation is not implemented yet, generating empty file.")
+    print_coloured(
+        WARNING,
+        "AXI-Stream Slave logic generation is not implemented yet, generating empty file.",
+    )
     return ""
 
+
 def get_stream_slave_signals():
-    print_coloured(INFO, "AXI-Stream Slave signals generation is not implemented yet, generating empty file.")
+    print_coloured(
+        WARNING,
+        "AXI-Stream Slave signals generation is not implemented yet, generating empty file.",
+    )
     return ""
+
 
 def get_stream_master_ios(last_ios=False):
     return f"""
@@ -199,20 +225,91 @@ def get_stream_master_ios(last_ios=False):
     input  wire AXIS_tready_i{',' if last_ios else ''}
 """
 
+
 def get_stream_master_logic():
-    print_coloured(INFO, "AXI-Stream Master logic generation is not implemented yet, generating empty file.")
+    print_coloured(
+        WARNING,
+        "AXI-Stream Master logic generation is not implemented yet, generating empty file.",
+    )
     return ""
+
 
 def get_stream_master_signals():
-    print_coloured(INFO, "AXI-Stream Master signals generation is not implemented yet, generating empty file.")
+    print_coloured(
+        WARNING,
+        "AXI-Stream Master signals generation is not implemented yet, generating empty file.",
+    )
     return ""
 
+
+def get_burst_slave_ios(last_ios=False):
+    print_coloured(ERROR, "Burst AXI Slave IOS generation is not implemented yet.")
+    return ""
+
+
+def get_burst_slave_logic():
+    print_coloured(ERROR, "Burst AXI Slave logic generation is not implemented yet.")
+    return ""
+
+
+def get_burst_slave_signals():
+    print_coloured(ERROR, "Burst AXI Slave signals generation is not implemented yet.")
+    return ""
+
+
+def get_burst_master_ios(last_ios=False):
+    return f"""
+    // AXI master interface
+    input wire                          aclk,
+    input wire                          areset,
+
+    output wire [C_ADDR_WIDTH-1:0]      awaddr,
+    output wire [7:0]                   awlen,
+    output wire [2:0]                   awsize,
+    output wire                         awvalid,
+    input wire                          awready,
+
+    output wire [C_DATA_WIDTH-1:0]      wdata,
+    output wire [C_DATA_WIDTH/8-1:0]    wstrb,
+    output wire                         wlast,
+    output wire                         wvalid,
+    input wire                          wready,
+
+    input wire [1:0]                    bresp,
+    input wire                          bvalid,
+    output wire                         bready,
+    output wire                         arvalid,
+    input  wire                         arready,
+    output wire [C_ADDR_WIDTH-1:0]      araddr,
+    output wire [C_ID_WIDTH-1:0]        arid,
+    output wire [7:0]                   arlen,
+    output wire [2:0]                   arsize,
+    input  wire                         rvalid,
+    output wire                         rready,
+    input  wire [C_DATA_WIDTH - 1:0]    rdata,
+    input  wire                         rlast,
+    input  wire [C_ID_WIDTH - 1:0]      rid,
+    input  wire [1:0]                   rresp,
+"""
+
+
+def get_burst_master_logic():
+    print_coloured(WARNING, "Full AXI Master logic generation is not implemented yet.")
+    return ""
+
+
+def get_burst_master_signals():
+    print_coloured(
+        WARNING, "Full AXI Master signals generation is not implemented yet."
+    )
+    return ""
 
 
 def write_vs(string, file_name):
     with open(file_name, "w") as file:
         file.write(string)
     print_coloured(OK, f"Generated {file_name}")
+
 
 def parse_arguments():
     if len(sys.argv) < 2:
@@ -221,10 +318,11 @@ def parse_arguments():
         print_coloured(INFO, "Example: python AXI.py lite_s")
         exit(1)
 
-    vs_name_suffix = sys.argv[1].replace("_ios.vs", "").replace("_logic.vs", "").replace("_signals.vs", "")
-    last_ios = len(sys.argv) > 2 and sys.argv[2] == ','
+    vs_name_suffix = sys.argv[1].replace("_ios.vs", "").replace("_logic.vs", "")
+    last_ios = len(sys.argv) > 2 and sys.argv[2] == ","
 
     return AXIInterface(vs_name_suffix), last_ios
+
 
 # Check if this script is called directly
 if __name__ == "__main__":

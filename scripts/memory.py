@@ -2,7 +2,7 @@
 
 # mem.py script creates a memory
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "mem_{Mem_name}.vs" // Type, Depth, Width, Init_file (optional)
+#   `include "memory_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
 # where Type can be: RAM or ROM. The Init_file is optional, unless you are using a ROM.
 # Default values are: Type = None; Depth = None; Width = None; Init_file = None.
 
@@ -12,7 +12,7 @@ import sys, re
 from VeriSnip.vs_colours import *
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
-vs_name = f"mem_{vs_name_suffix}.vs"
+vs_name = f"memory_{vs_name_suffix}.vs"
 
 
 class Memory:
