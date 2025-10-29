@@ -56,14 +56,15 @@ module FIFO #(
         else rd_data_o = mem;
       end
     end else begin : gen_fifo
-      localparam int ADDR_W = $clog2(DEPTH);
+      localparam integer AddrWidth = $clog2(DEPTH);
 
       // Storage
       reg [WIDTH-1:0] mem[DEPTH];
-      reg [ADDR_W:0] wptr;  // MSB is wrap flag
-      reg [ADDR_W:0] rptr;
+      reg [AddrWidth:0] wptr;  // MSB is wrap flag
+      reg [AddrWidth:0] rptr;
 
-      assign full_o  = (wptr[ADDR_W] ^ rptr[ADDR_W]) & (wptr[ADDR_W-1:0] == rptr[ADDR_W-1:0]);
+      assign full_o  = (wptr[AddrWidth] ^ rptr[AddrWidth]) &
+                       (wptr[AddrWidth-1:0] == rptr[AddrWidth-1:0]);
       assign empty_o = (wptr == rptr);
 
       always_ff @(posedge clk_i) begin
@@ -72,7 +73,7 @@ module FIFO #(
           rptr <= '0;
         end else begin
           if (int_wr_en) begin
-            mem[wptr[ADDR_W-1:0]] <= wr_data_i;
+            mem[wptr[AddrWidth-1:0]] <= wr_data_i;
             wptr <= wptr + 1;
           end
           if (int_rd_en) begin
@@ -83,7 +84,7 @@ module FIFO #(
 
       always @(*) begin
         if (tunnel_en) rd_data_o = wr_data_i;
-        else rd_data_o = mem[rptr[ADDR_W-1:0]];
+        else rd_data_o = mem[rptr[AddrWidth-1:0]];
       end
     end
   endgenerate
