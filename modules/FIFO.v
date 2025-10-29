@@ -36,7 +36,7 @@ module FIFO #(
       assign full_o  = (wptr ^ rptr);
       assign empty_o = (wptr ~^ rptr);
 
-      always_ff @(posedge clk_i) begin
+      always @(posedge clk_i) begin
         if (rst_i) begin
           wptr <= 1'b0;
           rptr <= 1'b0;
@@ -51,7 +51,7 @@ module FIFO #(
         end
       end
 
-      always_comb begin
+      always @(*) begin
         if (tunnel_en) rd_data_o = wr_data_i;
         else rd_data_o = mem;
       end
@@ -67,7 +67,7 @@ module FIFO #(
                        (wptr[AddrWidth-1:0] == rptr[AddrWidth-1:0]);
       assign empty_o = (wptr == rptr);
 
-      always_ff @(posedge clk_i) begin
+      always @(posedge clk_i) begin
         if (rst_i) begin
           wptr <= '0;
           rptr <= '0;
