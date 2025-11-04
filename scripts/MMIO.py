@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-# mmio.py script creates memory mapped registers
+# MMIO.py script creates memory mapped registers
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "mmio_{module}.vs" /*
+#   `include "MMIO_{module}.vs" /*
 #   Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
 #   Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
 #   Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
@@ -20,7 +20,7 @@ from VeriSnip.vs_colours import *
 from reg import register
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
-vs_name = f"mmio_{vs_name_suffix}.vs"
+vs_name = f"MMIO_{vs_name_suffix}.vs"
 
 assigns = ""
 read_always = ""
@@ -122,7 +122,7 @@ def parse_arguments():
 
 
 def registers_description(mm_reg_list):
-    reg_desc = f'  `include "reg_mmio_{vs_name_suffix}.vs" /*\n'
+    reg_desc = f'  `include "reg_MMIO_{vs_name_suffix}.vs" /*\n'
     for mm_reg in mm_reg_list:
         reg_desc += f"    {mm_reg.reg.signal}, {mm_reg.reg.size}, {mm_reg.reg.rst_val}, {mm_reg.reg.rst}, , {mm_reg.reg.next}\n"
     reg_desc += "  */\n"
@@ -180,7 +180,7 @@ def read_registers_desc(mm_reg_list):
     return r_desc
 
 
-def generate_mmio_signals(mm_reg_list):
+def generate_MMIO_signals(mm_reg_list):
     signal_content = "  // Additional signals for memory mapped registers\n"
     signal_content += "  reg [DATA_WIDTH-1:0] r_data;\n"
     signal_content += "  wire [DATA_WIDTH-1:0] w_data;\n"
@@ -202,7 +202,7 @@ def generate_mmio_signals(mm_reg_list):
 
 def create_vs(reg_list):
     vs_content = f"  // Automatically generated memory mapped registers interface for {vs_name_suffix}\n"
-    generate_mmio_signals(reg_list)
+    generate_MMIO_signals(reg_list)
     vs_content += sel_registers_desc(reg_list)
     vs_content += write_registers_desc(reg_list)
     vs_content += read_registers_desc(reg_list)
