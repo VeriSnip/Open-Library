@@ -113,7 +113,7 @@ def custom_split(description):
 def parse_arguments():
     reg_list = []
     if (len(sys.argv) < 2) or (sys.argv[2].strip() == ""):
-        print_coloured(ERROR, "Not enough arguments")
+        vs_print(ERROR, "Not enough arguments")
         exit(1)
     list_of_regs = sys.argv[2].split("\n")
     for reg in list_of_regs:

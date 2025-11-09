@@ -34,19 +34,19 @@ class Memory:
 
     def validate(self):
         if self.type == "":
-            print_coloured(ERROR, "You must provide the memory type: RAM or ROM.")
+            vs_print(ERROR, "You must provide the memory type: RAM or ROM.")
             exit(1)
         if self.type not in ["RAM", "ROM"]:
-            print_coloured(ERROR, f"Invalid memory type: {self.type}. Use RAM or ROM.")
+            vs_print(ERROR, f"Invalid memory type: {self.type}. Use RAM or ROM.")
             exit(1)
         if self.depth == "":
-            print_coloured(ERROR, "You must provide the memory depth.")
+            vs_print(ERROR, "You must provide the memory depth.")
             exit(1)
         if self.width == "":
-            print_coloured(ERROR, "You must provide the memory width.")
+            vs_print(ERROR, "You must provide the memory width.")
             exit(1)
         if self.type == "ROM" and self.init_file == "":
-            print_coloured(ERROR, "You must provide an init file for ROM.")
+            vs_print(ERROR, "You must provide an init file for ROM.")
             exit(1)
 
 
@@ -89,7 +89,7 @@ def memory_logic(mem):
             f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_addr];\n\n"
         )
     else:
-        print_coloured(ERROR, "Invalid memory type.")
+        vs_print(ERROR, "Invalid memory type.")
 
     with open(vs_name, "w") as file:
         file.write(verilog_code)
@@ -98,7 +98,7 @@ def memory_logic(mem):
 
 def parse_arguments():
     if len(sys.argv) < 2:
-        print_coloured(ERROR, "Not enough arguments.")
+        vs_print(ERROR, "Not enough arguments.")
         exit(1)
 
     memory_config = sys.argv[2].replace("//", "").strip().split(",")

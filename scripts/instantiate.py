@@ -130,7 +130,7 @@ def parse_arguments():
 
     module, module_name = get_module()
 
-    # print_coloured(DEBUG, ' '.join(sys.argv))
+    # vs_print(DEBUG, ' '.join(sys.argv))
     arguments = re.split(r" (?![^\"\"]*[\"])", sys.argv[2])
     for arg in arguments:
         # Split the argument into variable name and value
@@ -198,7 +198,7 @@ def module_definition_content(current_directory):
     )
 
     if sources_list == []:
-        print_coloured(ERROR, f"Module {module} not found")
+        vs_print(ERROR, f"Module {module} not found")
         exit(1)
 
     with open(sources_list[0], "r") as file:
@@ -210,7 +210,7 @@ def module_definition_content(current_directory):
     module_matches = re.findall(module_pattern, content)
 
     if module_matches[0][0].strip() != module:
-        print_coloured(
+        vs_print(
             ERROR, f"Module {module} not equivalent to {module_matches[0][0].strip()}."
         )
         exit(1)
@@ -233,7 +233,7 @@ def module_definition_content(current_directory):
                 new_content += substitute_vs_file(vs_file_path, sources_list)
             else:
                 warning_text = f"File {vs_file} does not exist to substitute."
-                print_coloured(WARNING, warning_text)
+                vs_print(WARNING, warning_text)
                 new_content += f"  // {warning_text}"
         else:
             new_content += line + "\n"

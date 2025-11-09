@@ -28,7 +28,7 @@ def verilog_string(counter_width, enable, reset):
 
 def parse_arguments():
     if len(sys.argv) < 2:
-        print_coloured(ERROR, "Not enough arguments.")
+        vs_print(ERROR, "Not enough arguments.")
         exit(1)
 
     # Check if any argument contains "//"
@@ -48,10 +48,10 @@ def parse_arguments():
             enable = "1'b1"
             reset = "1'b0"
         else:
-            print_coloured(ERROR, "Invalid number of arguments.")
+            vs_print(ERROR, "Invalid number of arguments.")
             exit(1)
     else:
-        print_coloured(ERROR, "Unsuported argument format.")
+        vs_print(ERROR, "Unsuported argument format.")
         exit(1)
 
     return counter_width, enable, reset

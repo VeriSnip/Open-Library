@@ -41,11 +41,11 @@ class AXIInterface:
             else:
                 raise ValueError
         except ValueError:
-            print_coloured(ERROR, f"Invalid vs_name_suffix: {vs_name_suffix}")
+            vs_print(ERROR, f"Invalid vs_name_suffix: {vs_name_suffix}")
             exit(1)
 
         if self.type not in ["lite", "stream"]:
-            print_coloured(ERROR, f"Invalid AXI type: {self.type}")
+            vs_print(ERROR, f"Invalid AXI type: {self.type}")
             exit(1)
 
     def generate(self, last_ios=False):
@@ -178,12 +178,12 @@ def get_lite_master_ios(last_ios=False):
 
 
 def get_lite_master_logic():
-    print_coloured(ERROR, "AXI-Lite Master logic generation is not implemented yet.")
+    vs_print(ERROR, "AXI-Lite Master logic generation is not implemented yet.")
     return ""
 
 
 def get_lite_master_signals():
-    print_coloured(
+    vs_print(
         INFO,
         "AXI-Lite Master signals generation is not implemented yet, generating empty file.",
     )
@@ -201,7 +201,7 @@ def get_stream_slave_ios(last_ios=False):
 
 
 def get_stream_slave_logic():
-    print_coloured(
+    vs_print(
         WARNING,
         "AXI-Stream Slave logic generation is not implemented yet, generating empty file.",
     )
@@ -209,7 +209,7 @@ def get_stream_slave_logic():
 
 
 def get_stream_slave_signals():
-    print_coloured(
+    vs_print(
         WARNING,
         "AXI-Stream Slave signals generation is not implemented yet, generating empty file.",
     )
@@ -227,7 +227,7 @@ def get_stream_master_ios(last_ios=False):
 
 
 def get_stream_master_logic():
-    print_coloured(
+    vs_print(
         WARNING,
         "AXI-Stream Master logic generation is not implemented yet, generating empty file.",
     )
@@ -235,7 +235,7 @@ def get_stream_master_logic():
 
 
 def get_stream_master_signals():
-    print_coloured(
+    vs_print(
         WARNING,
         "AXI-Stream Master signals generation is not implemented yet, generating empty file.",
     )
@@ -243,17 +243,17 @@ def get_stream_master_signals():
 
 
 def get_burst_slave_ios(last_ios=False):
-    print_coloured(ERROR, "Burst AXI Slave IOS generation is not implemented yet.")
+    vs_print(ERROR, "Burst AXI Slave IOS generation is not implemented yet.")
     return ""
 
 
 def get_burst_slave_logic():
-    print_coloured(ERROR, "Burst AXI Slave logic generation is not implemented yet.")
+    vs_print(ERROR, "Burst AXI Slave logic generation is not implemented yet.")
     return ""
 
 
 def get_burst_slave_signals():
-    print_coloured(ERROR, "Burst AXI Slave signals generation is not implemented yet.")
+    vs_print(ERROR, "Burst AXI Slave signals generation is not implemented yet.")
     return ""
 
 
@@ -294,12 +294,12 @@ def get_burst_master_ios(last_ios=False):
 
 
 def get_burst_master_logic():
-    print_coloured(WARNING, "Full AXI Master logic generation is not implemented yet.")
+    vs_print(WARNING, "Full AXI Master logic generation is not implemented yet.")
     return ""
 
 
 def get_burst_master_signals():
-    print_coloured(
+    vs_print(
         WARNING, "Full AXI Master signals generation is not implemented yet."
     )
     return ""
@@ -308,14 +308,14 @@ def get_burst_master_signals():
 def write_vs(string, file_name):
     with open(file_name, "w") as file:
         file.write(string)
-    print_coloured(OK, f"Generated {file_name}")
+    vs_print(OK, f"Generated {file_name}")
 
 
 def parse_arguments():
     if len(sys.argv) < 2:
-        print_coloured(ERROR, "Not enough arguments. Please provide vs_name_suffix.")
-        print_coloured(INFO, "Usage: python AXI.py <vs_name_suffix>")
-        print_coloured(INFO, "Example: python AXI.py lite_s")
+        vs_print(ERROR, "Not enough arguments. Please provide vs_name_suffix.")
+        vs_print(INFO, "Usage: python AXI.py <vs_name_suffix>")
+        vs_print(INFO, "Example: python AXI.py lite_s")
         exit(1)
 
     vs_name_suffix = sys.argv[1].replace("_ios.vs", "").replace("_logic.vs", "")

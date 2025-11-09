@@ -43,7 +43,7 @@ class register:
         if "name=" in reg_name:
             reg_name = reg_name.split("name=")[1]
         if reg_name == "":
-            print_coloured(ERROR, "You should give a name to the register.")
+            vs_print(ERROR, "You should give a name to the register.")
             exit(1)
         else:
             self.name = reg_name
@@ -148,7 +148,7 @@ def parse_arguments():
     registers_description = []
 
     if len(sys.argv) < 2:
-        print_coloured(ERROR, "Not enough arguments.")
+        vs_print(ERROR, "Not enough arguments.")
         exit(1)
 
     # Check if any argument contains "//"
