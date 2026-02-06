@@ -2,7 +2,7 @@
 
 # reg.py script creates a register
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "reg_{Reg_name}.vs" // Size, Reset Value, Reg_reset, Reg_enable, Reg_next
+#   `include "reg_{Reg_name}.vs" // Size, Reg_reset, Reset Value, Reg_enable, Reg_next
 # and
 #   `include "reg_{list_name}.vs" /*
 #             Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next
@@ -112,32 +112,27 @@ def write_vs(string="", file_name="reg.vs"):
 
 def reg_description(reg_list):
     verilog_code = f"  // Automatically generated register {vs_name_suffix}\n"
-    verilog_code += "  always @(posedge clk_i, posedge arst_i) begin\n"
-    verilog_code += "    if (arst_i) begin\n"
-    for reg in reg_list:
-        verilog_code += f"      {reg.signal} <= {reg.rst_val};\n"
-    verilog_code += f"    end else begin\n"
+    verilog_code += "  always @(posedge clk_i) begin\n"
     for reg in reg_list:
         verilog_code += f"      // Register {reg.signal}\n"
         if (reg.rst is not None) and (reg.en is not None):
-            verilog_code += f"      if ({reg.rst}) begin\n"
-            verilog_code += f"        {reg.signal} <= {reg.rst_val};\n"
-            verilog_code += f"      end else if ({reg.en}) begin\n"
-            verilog_code += f"        {reg.signal} <= {reg.next};\n"
-            verilog_code += f"      end\n"
-        elif reg.rst is not None:
-            verilog_code += f"      if ({reg.rst}) begin\n"
-            verilog_code += f"        {reg.signal} <= {reg.rst_val};\n"
-            verilog_code += f"      end else begin\n"
-            verilog_code += f"        {reg.signal} <= {reg.next};\n"
-            verilog_code += f"      end\n"
-        elif reg.en is not None:
-            verilog_code += f"      if ({reg.en}) begin\n"
-            verilog_code += f"        {reg.signal} <= {reg.next};\n"
-            verilog_code += f"      end\n"
-        else:
+            verilog_code += f"    if ({reg.rst}) begin\n"
+            verilog_code += f"      {reg.signal} <= {reg.rst_val};\n"
+            verilog_code += f"    end else if ({reg.en}) begin\n"
             verilog_code += f"      {reg.signal} <= {reg.next};\n"
-    verilog_code += "    end\n"
+            verilog_code += f"    end\n"
+        elif reg.rst is not None:
+            verilog_code += f"    if ({reg.rst}) begin\n"
+            verilog_code += f"      {reg.signal} <= {reg.rst_val};\n"
+            verilog_code += f"    end else begin\n"
+            verilog_code += f"      {reg.signal} <= {reg.next};\n"
+            verilog_code += f"    end\n"
+        elif reg.en is not None:
+            verilog_code += f"    if ({reg.en}) begin\n"
+            verilog_code += f"      {reg.signal} <= {reg.next};\n"
+            verilog_code += f"    end\n"
+        else:
+            verilog_code += f"    {reg.signal} <= {reg.next};\n"
     verilog_code += "  end\n"
 
     return verilog_code
