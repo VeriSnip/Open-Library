@@ -2,7 +2,7 @@
 
 # reg.py script creates a register
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "reg_{Reg_name}.vs" // Size, Reg_reset, Reset Value, Reg_enable, Reg_next
+#   `include "reg_{Reg_name}.vs" // Size, Reset Value, Reg_reset, Reg_enable, Reg_next
 # and
 #   `include "reg_{list_name}.vs" /*
 #             Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next
