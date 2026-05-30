@@ -9,10 +9,6 @@
 import subprocess
 import sys
 import os
-from VeriSnip.vs_build import (
-    find_verilog_and_scripts,
-    find_filename_in_list,
-)
 from VeriSnip.vs_colours import *
 
 
@@ -77,7 +73,7 @@ class AXIInterface:
         if logic_content:
             write_vs(logic_content, f"AXI_{self.vs_name_suffix}_logic.vs")
         if signals_content:
-            with open(f"{sys.argv[4]}_generated_signals.vs", "a") as f:
+            with open(f"{sys.argv[3]}_generated_signals.vs", "a") as f:
                 f.write("// AXI Signals\n")
                 f.write(signals_content)
 

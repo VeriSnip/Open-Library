@@ -12,10 +12,6 @@
 
 import subprocess
 import sys
-from VeriSnip.vs_build import (
-    find_verilog_and_scripts,
-    find_filename_in_list,
-)
 from VeriSnip.vs_colours import *
 from reg import register
 
@@ -31,19 +27,23 @@ class memory_mapped_register:
     def __init__(self, description) -> None:
         properties = custom_split(description)
         properties = [prop.strip() for prop in properties]
-        self.reg = register(
-            [
-                properties[0],
-                properties[1],
-                properties[2],
-                properties[3],
-                properties[4],
-                properties[5],
-            ]
-        )
-        self.set_address(properties[6])
-        self.set_access_type(properties[7])
-        self.set_default_value(properties[8])
+        try:
+            self.reg = register(
+                [
+                    properties[0],
+                    properties[1],
+                    properties[2],
+                    properties[3],
+                    properties[4],
+                    properties[5],
+                ]
+            )
+            self.set_address(properties[6])
+            self.set_access_type(properties[7])
+            self.set_default_value(properties[8])
+        except:
+            vs_print(ERROR, f"MMIO register is malformed, expected 8 values.")
+            exit()
         self.set_sel()
 
     def set_address(self, mm_reg_address):
@@ -196,7 +196,7 @@ def generate_MMIO_signals(mm_reg_list):
         signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.signal};\n"
         signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.next};\n"
     signal_content += "\n"
-    generated_signals_file = f"{sys.argv[4]}_generated_signals.vs"
+    generated_signals_file = f"{sys.argv[3]}_generated_signals.vs"
     with open(generated_signals_file, "a") as file:
         file.write(signal_content)
 
