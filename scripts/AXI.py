@@ -2,9 +2,8 @@
 
 # AXI.py script creates required AXI IOs and logic for Lite and Stream interfaces.
 # It generates two files:
-#   - AXI_{vs_name_suffix}_ios.vs
-#   - AXI_{vs_name_suffix}_logic.vs
-# The vs_name_suffix can be: lite_s, lite_m, stream_s, stream_m.
+#   - AXI_[ios,signals,logic][_{vs_name_suffix}].vs // AXI-[Lite,Full,Stream] [Master,Slave]
+# Note: [_{vs_name_suffix}] is optional. But becarful to not use the same interface in multiple files that are meant to have different interface configurations.
 
 import subprocess
 import sys
@@ -15,67 +14,63 @@ from VeriSnip.vs_colours import *
 class AXIInterface:
     def __init__(self, vs_name_suffix):
         self.vs_name_suffix = vs_name_suffix
+        for token in ("ios", "logic", "signals", ".vs"):
+            self.vs_name_suffix = self.vs_name_suffix.replace(token, "")
+        config_line = sys.argv[2]
+        # Detect whether the include line ends with a comma (not last IO).
+        self.last_ios = (config_line.split("//", 1)[0].strip() == ",")
+        configuration = config_line.split("//", 1)[1].strip().split()
         try:
-            if "stream_s" in vs_name_suffix:
+            if "AXI-Stream" in configuration:
                 self.type = "stream"
-                self.node_type = "slave"
-            elif "stream_m" in vs_name_suffix:
-                self.type = "stream"
-                self.node_type = "master"
-            elif "lite_s" in vs_name_suffix:
+            elif "AXI-Lite" in configuration:
                 self.type = "lite"
+            #elif "AXI-Full" in configuration: # Unsupported for now
+            #    self.type = "full"
+            else:
+                raise ValueError
+
+            if "Slave" in configuration:
                 self.node_type = "slave"
-            elif "lite_m" in vs_name_suffix:
-                self.type = "lite"
-                self.node_type = "master"
-            elif "s" in vs_name_suffix:
-                self.type = "full"
-                self.node_type = "slave"
-            elif "m" in vs_name_suffix:
-                self.type = "full"
+            elif "Master" in configuration:
                 self.node_type = "master"
             else:
                 raise ValueError
         except ValueError:
-            vs_print(ERROR, f"Invalid vs_name_suffix: {vs_name_suffix}")
+            vs_print(ERROR, f"Invalid configuration: {configuration}")
             exit(1)
 
-        if self.type not in ["lite", "stream"]:
-            vs_print(ERROR, f"Invalid AXI type: {self.type}")
-            exit(1)
-
-    def generate(self, last_ios=False):
+    def generate(self):
         ios_content = ""
         logic_content = ""
         signals_content = ""
+        name = self.vs_name_suffix
 
         if self.type == "lite":
             if self.node_type == "slave":
-                ios_content = get_lite_slave_ios(last_ios)
+                ios_content = get_lite_slave_ios(self.last_ios)
                 logic_content = get_lite_slave_logic(self.vs_name_suffix)
                 signals_content = get_lite_slave_signals()
             else:  # master
-                ios_content = get_lite_master_ios(last_ios)
+                ios_content = get_lite_master_ios(self.last_ios)
                 logic_content = get_lite_master_logic()
                 signals_content = get_lite_master_signals()
         else:  # stream
             if self.node_type == "slave":
-                ios_content = get_stream_slave_ios(last_ios)
+                ios_content = get_stream_slave_ios(self.last_ios)
                 logic_content = get_stream_slave_logic()
                 signals_content = get_stream_slave_signals()
             else:  # master
-                ios_content = get_stream_master_ios(last_ios)
+                ios_content = get_stream_master_ios(self.last_ios)
                 logic_content = get_stream_master_logic()
                 signals_content = get_stream_master_signals()
 
         if ios_content:
-            write_vs(ios_content, f"AXI_{self.vs_name_suffix}_ios.vs")
+            write_vs(ios_content, f"AXI_ios{name}.vs")
         if logic_content:
-            write_vs(logic_content, f"AXI_{self.vs_name_suffix}_logic.vs")
+            write_vs(logic_content, f"AXI_logic{name}.vs")
         if signals_content:
-            with open(f"{sys.argv[3]}_generated_signals.vs", "a") as f:
-                f.write("// AXI Signals\n")
-                f.write(signals_content)
+            write_vs(signals_content, f"AXI_signals{name}.vs")
 
 
 def get_lite_slave_ios(last_ios=False):
@@ -313,14 +308,11 @@ def parse_arguments():
         vs_print(INFO, "Usage: python AXI.py <vs_name_suffix>")
         vs_print(INFO, "Example: python AXI.py lite_s")
         exit(1)
-
-    vs_name_suffix = sys.argv[1].replace("_ios.vs", "").replace("_logic.vs", "")
-    last_ios = len(sys.argv) > 2 and sys.argv[2] == ","
-
-    return AXIInterface(vs_name_suffix), last_ios
+    interface = AXIInterface(sys.argv[1])
+    return interface
 
 
 # Check if this script is called directly
 if __name__ == "__main__":
-    axi_if, last_ios = parse_arguments()
-    axi_if.generate(last_ios)
+    axi_if = parse_arguments()
+    axi_if.generate()
