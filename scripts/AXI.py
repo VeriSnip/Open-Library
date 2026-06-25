@@ -1,170 +1,188 @@
 #!/usr/bin/env python
 
-# AXI.py script creates required AXI IOs and logic for Lite and Stream interfaces.
+# AXI.py script creates required AXI IOs and logic for Lite, Stream, and Full interfaces.
 # It generates two files:
-#   - AXI_[ios,signals,logic][_{vs_name_suffix}].vs // AXI-[Lite,Full,Stream] [Master,Slave]
-# Note: [_{vs_name_suffix}] is optional. But becarful to not use the same interface in multiple files that are meant to have different interface configurations.
+# To call this script in a Verilog file it should follow one of the following patterns:
+#   `include "AXI_[ios,signals,logic][_{interface/bus_name}].vs" // AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+# and
+#   `include "AXI_[ios,signals,logic][_{interface_name}].vs" /*
+#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+#             ...
+#             */
+# Notes:
+# - {bus_name} is optional. If it is not provided, the script will use the interface name as the bus name.
+# - {interface_name} is optional. If it is not provided, the script will use the bus name as the interface name.
 
 import subprocess
 import sys
 import os
+import re
 from VeriSnip.vs_colours import *
 
 
-class AXIInterface:
-    def __init__(self, vs_name_suffix):
-        self.vs_name_suffix = vs_name_suffix
-        for token in ("ios", "logic", "signals", ".vs"):
-            self.vs_name_suffix = self.vs_name_suffix.replace(token, "")
-        config_line = sys.argv[2]
-        # Detect whether the include line ends with a comma (not last IO).
-        self.last_ios = (config_line.split("//", 1)[0].strip() == ",")
-        configuration = config_line.split("//", 1)[1].strip().split()
-        try:
-            if "AXI-Stream" in configuration:
-                self.type = "stream"
-            elif "AXI-Lite" in configuration:
-                self.type = "lite"
-            #elif "AXI-Full" in configuration: # Unsupported for now
-            #    self.type = "full"
-            else:
-                raise ValueError
+class AXIConfiguration:
+    def __init__(self, configuration):
+        configuration = configuration.split(" ")
+        self.type = configuration[0]
+        self.node = configuration[1]
+        self.name = configuration[2]
 
-            if "Slave" in configuration:
-                self.node_type = "slave"
-            elif "Master" in configuration:
-                self.node_type = "master"
-            else:
-                raise ValueError
-        except ValueError:
-            vs_print(ERROR, f"Invalid configuration: {configuration}")
-            exit(1)
+class AXIInterface:
+    def __init__(self, vs_suffix, configurations, last_ios):
+        self.interface_name = vs_suffix
+        self.conf_list = configurations.split("\n")
+        self.last_ios = last_ios    
+        self.buses = [AXIConfiguration(conf.strip() + " " + self.interface_name) for conf in self.conf_list]
 
     def generate(self):
         ios_content = ""
         logic_content = ""
         signals_content = ""
-        name = self.vs_name_suffix
 
-        if self.type == "lite":
-            if self.node_type == "slave":
-                ios_content = get_lite_slave_ios(self.last_ios)
-                logic_content = get_lite_slave_logic(self.vs_name_suffix)
-                signals_content = get_lite_slave_signals()
-            else:  # master
-                ios_content = get_lite_master_ios(self.last_ios)
-                logic_content = get_lite_master_logic()
-                signals_content = get_lite_master_signals()
-        else:  # stream
-            if self.node_type == "slave":
-                ios_content = get_stream_slave_ios(self.last_ios)
-                logic_content = get_stream_slave_logic()
-                signals_content = get_stream_slave_signals()
-            else:  # master
-                ios_content = get_stream_master_ios(self.last_ios)
-                logic_content = get_stream_master_logic()
-                signals_content = get_stream_master_signals()
+        for bus in self.buses:
+            # Determine if this is the last bus in the list (for correct 'last_ios' behavior)
+            is_last_bus = bus == self.buses[-1]
+            last_ios = is_last_bus and self.last_ios     
+            if bus.type == "AXI-Lite":
+                vs_print(INFO, f"Generating AXI-Lite {bus.node} {bus.name} interface.")
+                prefix = f"AXIL_{bus.name}" if bus.name else "AXIL"
+                if bus.node == "Slave":
+                    ios_content += get_lite_slave_ios(prefix, last_ios)
+                    logic_content += get_lite_slave_logic(prefix, bus.name)
+                    signals_content += get_lite_slave_signals(prefix)
+                else:  # master
+                    ios_content += get_lite_master_ios(prefix, last_ios)
+                    logic_content += get_lite_master_logic()
+                    signals_content += get_lite_master_signals()
+            elif bus.type == "AXI-Stream":
+                vs_print(INFO, f"Generating AXI-Stream {bus.node} {bus.name} interface.")
+                prefix = f"AXIS_{bus.name}" if bus.name else "AXIS"
+                if bus.node == "Slave":
+                    ios_content += get_stream_slave_ios(prefix, last_ios)
+                    logic_content += get_stream_slave_logic()
+                    signals_content += get_stream_slave_signals()
+                else:  # master
+                    ios_content += get_stream_master_ios(prefix, last_ios)
+                    logic_content += get_stream_master_logic()
+                    signals_content += get_stream_master_signals()
+            elif bus.type == "AXI-Full":
+                vs_print(INFO, f"Generating AXI-Full {bus.node} {bus.name} interface.")
+                prefix = f"AXIF_{bus.name}" if bus.name else "AXIF"
+                if bus.node == "Slave":
+                    ios_content += get_full_slave_ios(prefix, last_ios)
+                    logic_content += get_full_slave_logic()
+                    signals_content += get_full_slave_signals()
+                else:  # master
+                    ios_content += get_full_master_ios(prefix, last_ios)
+                    logic_content += get_full_master_logic()
+                    signals_content += get_full_master_signals()
 
+        name = "_" + self.interface_name if self.interface_name else ""
         if ios_content:
             write_vs(ios_content, f"AXI_ios{name}.vs")
         if logic_content:
             write_vs(logic_content, f"AXI_logic{name}.vs")
         if signals_content:
             write_vs(signals_content, f"AXI_signals{name}.vs")
+        
+        name = " " + self.interface_name if self.interface_name else ""
+        vs_print(OK, f"Generated AXI{name} interface.")
 
 
-def get_lite_slave_ios(last_ios=False):
+def get_lite_slave_ios(bus_prefix, last_ios=False):
     return f"""
-    input  wire AXIL_awvalid_i,
-    output wire AXIL_awready_o,
-    input  wire [ADDR_WIDTH-1:0] AXIL_awaddr_i,
-    input  wire [2:0] AXIL_awprot_i,
-    input  wire AXIL_wvalid_i,
-    output wire AXIL_wready_o,
-    input  wire [DATA_WIDTH-1:0] AXIL_wdata_i,
-    input  wire [DATA_WIDTH/8-1:0] AXIL_wstrb_i,
-    output  reg AXIL_bvalid_o,
-    input  wire AXIL_bready_i,
-    output wire [1:0] AXIL_bresp_o,
-    input  wire AXIL_arvalid_i,
-    output wire AXIL_arready_o,
-    input  wire [ADDR_WIDTH-1:0] AXIL_araddr_i,
-    input  wire [2:0] AXIL_arprot_i,
-    output  reg AXIL_rvalid_o,
-    input  wire AXIL_rready_i,
-    output  reg [DATA_WIDTH-1:0] AXIL_rdata_o,
-    output wire [1:0] AXIL_rresp_o{',' if last_ios else ''}
+    input  wire {bus_prefix}_awvalid_i,
+    output wire {bus_prefix}_awready_o,
+    input  wire [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
+    input  wire [2:0] {bus_prefix}_awprot_i,
+    input  wire {bus_prefix}_wvalid_i,
+    output wire {bus_prefix}_wready_o,
+    input  wire [DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
+    input  wire [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
+    output  reg {bus_prefix}_bvalid_o,
+    input  wire {bus_prefix}_bready_i,
+    output wire [1:0] {bus_prefix}_bresp_o,
+    input  wire {bus_prefix}_arvalid_i,
+    output wire {bus_prefix}_arready_o,
+    input  wire [ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
+    input  wire [2:0] {bus_prefix}_arprot_i,
+    output  reg {bus_prefix}_rvalid_o,
+    input  wire {bus_prefix}_rready_i,
+    output  reg [DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
+    output wire [1:0] {bus_prefix}_rresp_o{',' if last_ios else ''}
 """
 
 
-def get_lite_slave_logic(vs_name_suffix=None):
+def get_lite_slave_logic(bus_prefix, vs_name_suffix=None):
     return f"""
   // Automatically generated AXIL slave logic.
-  assign AXIL_awready_o = 1'b1;
-  assign AXIL_wready_o = 1'b1;
-  assign AXIL_arready_o = 1'b1;
-  assign AXIL_bresp_o = 2'b00;
-  assign AXIL_rresp_o = 2'b00;
+  assign {bus_prefix}_awready_o = 1'b1;
+  assign {bus_prefix}_wready_o = 1'b1;
+  assign {bus_prefix}_arready_o = 1'b1;
+  assign {bus_prefix}_bresp_o = 2'b00;
+  assign {bus_prefix}_rresp_o = 2'b00;
 
-  assign w_address = AXIL_awvalid_i ? AXIL_awaddr_i : AXIL_awaddr_q;
-  assign w_data = AXIL_wvalid_i ? AXIL_wdata_i : AXIL_wdata_q;
-  assign w_enable = (AXIL_awvalid_i & AXIL_wvalid_i) | (AXIL_awvalid_i & AXIL_wvalid_q) | (AXIL_awvalid_q & AXIL_wvalid_i);
-  assign r_address = AXIL_arvalid_i ? AXIL_araddr_i : AXIL_araddr_q;
-  assign r_enable = AXIL_arvalid_i;
-  assign AXIL_rvalid_e = AXIL_arvalid_i | AXIL_rready_i;
+  assign {bus_prefix}_w_address = {bus_prefix}_awvalid_i ? {bus_prefix}_awaddr_i : {bus_prefix}_awaddr_q;
+  assign {bus_prefix}_w_data = {bus_prefix}_wvalid_i ? {bus_prefix}_wdata_i : {bus_prefix}_wdata_q;
+  assign {bus_prefix}_w_enable = ({bus_prefix}_awvalid_i & {bus_prefix}_wvalid_i) | ({bus_prefix}_awvalid_i & {bus_prefix}_wvalid_q) | ({bus_prefix}_awvalid_q & {bus_prefix}_wvalid_i);
+  assign {bus_prefix}_r_address = {bus_prefix}_arvalid_i ? {bus_prefix}_araddr_i : {bus_prefix}_araddr_q;
+  assign {bus_prefix}_r_enable = {bus_prefix}_arvalid_i;
+  assign {bus_prefix}_rvalid_e = {bus_prefix}_arvalid_i | {bus_prefix}_rready_i;
 
   `include "reg_AXI_{vs_name_suffix}.vs"  /*
-    AXIL_awvalid_q, 1, 0, w_enable, AXIL_awvalid_i, AXIL_awvalid_i
-    AXIL_awaddr_q, ADDR_WIDTH, 0, , AXIL_awvalid_i, AXIL_awaddr_i
-    AXIL_wvalid_q, 1, 0, w_enable, AXIL_wvalid_i, AXIL_wvalid_i
-    AXIL_wdata_q, DATA_WIDTH, 0, , AXIL_wvalid_i, AXIL_wdata_i
-    AXIL_araddr_q, ADDR_WIDTH, 0, , AXIL_arvalid_i, AXIL_araddr_i
-    AXIL_bvalid_o, 1, 0, , , w_enable
-    AXIL_rvalid_o, 1, 0, , _e, r_enable
-    AXIL_rdata_o, DATA_WIDTH, 0, , , r_data
+    {bus_prefix}_awvalid_q, 1, 0, {bus_prefix}_w_enable, {bus_prefix}_awvalid_i, {bus_prefix}_awvalid_i
+    {bus_prefix}_awaddr_q, ADDR_WIDTH, 0, , {bus_prefix}_awvalid_i, {bus_prefix}_awaddr_i
+    {bus_prefix}_wvalid_q, 1, 0, {bus_prefix}_w_enable, {bus_prefix}_wvalid_i, {bus_prefix}_wvalid_i
+    {bus_prefix}_wdata_q, DATA_WIDTH, 0, , {bus_prefix}_wvalid_i, {bus_prefix}_wdata_i
+    {bus_prefix}_araddr_q, ADDR_WIDTH, 0, , {bus_prefix}_arvalid_i, {bus_prefix}_araddr_i
+    {bus_prefix}_bvalid_o, 1, 0, , , {bus_prefix}_w_enable
+    {bus_prefix}_rvalid_o, 1, 0, , _e, {bus_prefix}_r_enable
+    {bus_prefix}_rdata_o, DATA_WIDTH, 0, , , {bus_prefix}_r_data
     */
 """
 
 
-def get_lite_slave_signals():
-    return """
+def get_lite_slave_signals(bus_prefix):
+    return f"""
   // Additional signals for AXI-Lite Slave
-  reg AXIL_awvalid_q;
-  reg [ADDR_WIDTH-1:0] AXIL_awaddr_q;
-  reg AXIL_wvalid_q;
-  reg [DATA_WIDTH-1:0] AXIL_wdata_q;
-  reg [ADDR_WIDTH-1:0] AXIL_araddr_q;
-  wire AXIL_rvalid_e;
-  wire [DATA_WIDTH-1:0] r_data;
-  wire [ADDR_WIDTH-1:0] w_address;
-  wire [DATA_WIDTH-1:0] w_data;
-  wire w_enable;
-  wire [ADDR_WIDTH-1:0] r_address;
-  wire r_enable;
+  reg {bus_prefix}_awvalid_q;
+  reg [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
+  reg {bus_prefix}_wvalid_q;
+  reg [DATA_WIDTH-1:0] {bus_prefix}_wdata_q;
+  reg [ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
+  wire {bus_prefix}_rvalid_e;
+  wire [DATA_WIDTH-1:0] {bus_prefix}_r_data;
+  wire [ADDR_WIDTH-1:0] {bus_prefix}_w_address;
+  wire [DATA_WIDTH-1:0] {bus_prefix}_w_data;
+  wire {bus_prefix}_w_enable;
+  wire [ADDR_WIDTH-1:0] {bus_prefix}_r_address;
+  wire {bus_prefix}_r_enable;
 """
 
 
-def get_lite_master_ios(last_ios=False):
+def get_lite_master_ios(bus_prefix, last_ios=False):
     return f"""
-    output wire AXIL_awvalid_o,
-    input  wire AXIL_awready_i,
-    output wire [ADDR_WIDTH-1:0] AXIL_awaddr_o,
-    output wire [2:0] AXIL_awprot_o,
-    output wire AXIL_wvalid_o,
-    input  wire AXIL_wready_i,
-    output wire [DATA_WIDTH-1:0] AXIL_wdata_o,
-    output wire [DATA_WIDTH/8-1:0] AXIL_wstrb_o,
-    input  wire AXIL_bvalid_i,
-    output wire AXIL_bready_o,
-    input  wire [1:0] AXIL_bresp_i,
-    output wire AXIL_arvalid_o,
-    input  wire AXIL_arready_i,
-    output wire [ADDR_WIDTH-1:0] AXIL_araddr_o,
-    output wire [2:0] AXIL_arprot_o,
-    input  wire AXIL_rvalid_i,
-    output wire AXIL_rready_o,
-    input  wire [DATA_WIDTH-1:0] AXIL_rdata_i,
-    input  wire [1:0] AXIL_rresp_i{',' if last_ios else ''}
+    output wire {bus_prefix}_awvalid_o,
+    input  wire {bus_prefix}_awready_i,
+    output wire [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_o,
+    output wire [2:0] {bus_prefix}_awprot_o,
+    output wire {bus_prefix}_wvalid_o,
+    input  wire {bus_prefix}_wready_i,
+    output wire [DATA_WIDTH-1:0] {bus_prefix}_wdata_o,
+    output wire [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_o,
+    input  wire {bus_prefix}_bvalid_i,
+    output wire {bus_prefix}_bready_o,
+    input  wire [1:0] {bus_prefix}_bresp_i,
+    output wire {bus_prefix}_arvalid_o,
+    input  wire {bus_prefix}_arready_i,
+    output wire [ADDR_WIDTH-1:0] {bus_prefix}_araddr_o,
+    output wire [2:0] {bus_prefix}_arprot_o,
+    input  wire {bus_prefix}_rvalid_i,
+    output wire {bus_prefix}_rready_o,
+    input  wire [DATA_WIDTH-1:0] {bus_prefix}_rdata_i,
+    input  wire [1:0] {bus_prefix}_rresp_i{',' if last_ios else ''}
 """
 
 
@@ -181,13 +199,13 @@ def get_lite_master_signals():
     return ""
 
 
-def get_stream_slave_ios(last_ios=False):
+def get_stream_slave_ios(bus_prefix, last_ios=False):
     return f"""
-    input  wire [DATA_WIDTH-1:0] AXIS_tdata_i,
-    input  wire [DATA_WIDTH/8-1:0] AXIS_tstrb_i,
-    input  wire AXIS_tlast_i,
-    input  wire AXIS_tvalid_i,
-    output wire AXIS_tready_o{',' if last_ios else ''}
+    input  wire [DATA_WIDTH-1:0] {bus_prefix}_tdata_i,
+    input  wire [DATA_WIDTH/8-1:0] {bus_prefix}_tstrb_i,
+    input  wire {bus_prefix}_tlast_i,
+    input  wire {bus_prefix}_tvalid_i,
+    output wire {bus_prefix}_tready_o{',' if last_ios else ''}
 """
 
 
@@ -207,13 +225,13 @@ def get_stream_slave_signals():
     return ""
 
 
-def get_stream_master_ios(last_ios=False):
+def get_stream_master_ios(bus_prefix, last_ios=False):
     return f"""
-    output wire [DATA_WIDTH-1:0] AXIS_tdata_o,
-    output wire [DATA_WIDTH/8-1:0] AXIS_tstrb_o,
-    output wire AXIS_tlast_o,
-    output wire AXIS_tvalid_o,
-    input  wire AXIS_tready_i{',' if last_ios else ''}
+    output wire [DATA_WIDTH-1:0] {bus_prefix}_tdata_o,
+    output wire [DATA_WIDTH/8-1:0] {bus_prefix}_tstrb_o,
+    output wire {bus_prefix}_tlast_o,
+    output wire {bus_prefix}_tvalid_o,
+    input  wire {bus_prefix}_tready_i{',' if last_ios else ''}
 """
 
 
@@ -233,63 +251,55 @@ def get_stream_master_signals():
     return ""
 
 
-def get_burst_slave_ios(last_ios=False):
-    vs_print(ERROR, "Burst AXI Slave IOS generation is not implemented yet.")
+def get_full_slave_ios(bus_prefix, last_ios=False):
+    vs_print(ERROR, "Full AXI Slave IOS generation is not implemented yet.")
     return ""
 
 
-def get_burst_slave_logic():
-    vs_print(ERROR, "Burst AXI Slave logic generation is not implemented yet.")
+def get_full_slave_logic():
+    vs_print(ERROR, "Full AXI Slave logic generation is not implemented yet.")
     return ""
 
 
-def get_burst_slave_signals():
-    vs_print(ERROR, "Burst AXI Slave signals generation is not implemented yet.")
+def get_full_slave_signals():
+    vs_print(ERROR, "Full AXI Slave signals generation is not implemented yet.")
     return ""
 
 
-def get_burst_master_ios(last_ios=False):
+def get_full_master_ios(bus_prefix, last_ios=False):
     return f"""
-    // AXI master interface
-    input wire                          aclk,
-    input wire                          areset,
-
-    output wire [C_ADDR_WIDTH-1:0]      awaddr,
-    output wire [7:0]                   awlen,
-    output wire [2:0]                   awsize,
-    output wire                         awvalid,
-    input wire                          awready,
-
-    output wire [C_DATA_WIDTH-1:0]      wdata,
-    output wire [C_DATA_WIDTH/8-1:0]    wstrb,
-    output wire                         wlast,
-    output wire                         wvalid,
-    input wire                          wready,
-
-    input wire [1:0]                    bresp,
-    input wire                          bvalid,
-    output wire                         bready,
-    output wire                         arvalid,
-    input  wire                         arready,
-    output wire [C_ADDR_WIDTH-1:0]      araddr,
-    output wire [C_ID_WIDTH-1:0]        arid,
-    output wire [7:0]                   arlen,
-    output wire [2:0]                   arsize,
-    input  wire                         rvalid,
-    output wire                         rready,
-    input  wire [C_DATA_WIDTH - 1:0]    rdata,
-    input  wire                         rlast,
-    input  wire [C_ID_WIDTH - 1:0]      rid,
-    input  wire [1:0]                   rresp,
+    output wire [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_o,
+    output wire [7:0] {bus_prefix}_awlen_o,
+    output wire [2:0] {bus_prefix}_awsize_o,
+    output wire {bus_prefix}_awvalid_o,
+    input  wire {bus_prefix}_awready_i,
+    output wire [DATA_WIDTH-1:0] {bus_prefix}_wdata_o,
+    output wire [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_o,
+    output wire {bus_prefix}_wlast_o,
+    output wire {bus_prefix}_wvalid_o,
+    input  wire {bus_prefix}_wready_i,
+    input  wire [1:0] {bus_prefix}_bresp_i,
+    input  wire {bus_prefix}_bvalid_i,
+    output wire {bus_prefix}_bready_o,
+    output wire {bus_prefix}_arvalid_o,
+    input  wire {bus_prefix}_arready_i,
+    output wire [ADDR_WIDTH-1:0] {bus_prefix}_araddr_o,
+    output wire [7:0] {bus_prefix}_arlen_o,
+    output wire [2:0] {bus_prefix}_arsize_o,
+    input  wire {bus_prefix}_rvalid_i,
+    output wire {bus_prefix}_rready_o,
+    input  wire [DATA_WIDTH-1:0] {bus_prefix}_rdata_i,
+    input  wire {bus_prefix}_rlast_i,
+    input  wire [1:0] {bus_prefix}_rresp_i{',' if last_ios else ''}
 """
 
 
-def get_burst_master_logic():
+def get_full_master_logic():
     vs_print(WARNING, "Full AXI Master logic generation is not implemented yet.")
     return ""
 
 
-def get_burst_master_signals():
+def get_full_master_signals():
     vs_print(
         WARNING, "Full AXI Master signals generation is not implemented yet."
     )
@@ -299,7 +309,6 @@ def get_burst_master_signals():
 def write_vs(string, file_name):
     with open(file_name, "w") as file:
         file.write(string)
-    vs_print(OK, f"Generated {file_name}")
 
 
 def parse_arguments():
@@ -308,7 +317,16 @@ def parse_arguments():
         vs_print(INFO, "Usage: python AXI.py <vs_name_suffix>")
         vs_print(INFO, "Example: python AXI.py lite_s")
         exit(1)
-    interface = AXIInterface(sys.argv[1])
+    
+    vs_name_suffix = sys.argv[1]
+    for token in ("ios.vs", "logic.vs", "signals.vs"):
+        vs_name_suffix = vs_name_suffix.replace(token, "")
+    config_line = sys.argv[2].strip()
+    # Detect whether the include line ends with a comma (not last IO).
+    last_ios = (config_line.startswith(","))
+    configuration = config_line.split(",", 1)[1].strip() if last_ios else config_line.strip()
+    configurations = configuration.replace("//", "").replace("/*", "").replace("*/", "").strip()
+    interface = AXIInterface(vs_name_suffix, configurations, last_ios)
     return interface
 
 
