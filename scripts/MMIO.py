@@ -121,6 +121,54 @@ def parse_arguments():
     return reg_list
 
 
+def parse_verilog_address(address):
+    """Convert a simple Verilog or Python-style address literal to an integer."""
+    literal = address.strip().replace("_", "")
+    if "'" not in literal:
+        return int(literal, 0)
+
+    _, value = literal.split("'", 1)
+    value = value.removeprefix("s").removeprefix("S")
+    base_to_radix = {"b": 2, "o": 8, "d": 10, "h": 16}
+    radix = base_to_radix.get(value[0].lower())
+    digits = value[1:]
+    if radix is None or any(digit.lower() in "xz?" for digit in digits):
+        raise ValueError(f"Unsupported Verilog address literal: {address}")
+
+    return int(digits, radix)
+
+
+def format_address_ranges(mm_reg_list):
+    """Format MMIO register addresses as compact comma-separated ranges."""
+    addresses = sorted({parse_verilog_address(mm_reg.address) for mm_reg in mm_reg_list})
+    ranges = []
+    range_start = range_end = addresses[0]
+
+    for address in addresses[1:]:
+        if address > range_end + 1:
+            ranges.append(f"{range_start}" if range_start == range_end else f"{range_start}-{range_end}")
+            range_start = address
+        range_end = address
+
+    ranges.append(f"{range_start}" if range_start == range_end else f"{range_start}-{range_end}")
+    return ", ".join(ranges)
+
+
+def print_mmio_info(mm_reg_list):
+    """Print an INFO summary of the generated MMIO register map."""
+    reg_count = len(mm_reg_list)
+    reg_label = "register" if reg_count == 1 else "registers"
+    try:
+        address_ranges = format_address_ranges(mm_reg_list)
+    except ValueError:
+        address_ranges = ", ".join(mm_reg.address for mm_reg in mm_reg_list)
+    vs_print(
+        INFO,
+        f"Generated {reg_count} memory mapped IO {reg_label} for {vs_name_suffix} "
+        f"at address range(s): {address_ranges}.",
+    )
+
+
 def registers_description(mm_reg_list):
     reg_desc = f'  `include "reg_MMIO_{vs_name_suffix}.vs" /*\n'
     for mm_reg in mm_reg_list:
@@ -218,4 +266,6 @@ def write_vs(string="", file_name="reg.vs"):
 # Check if this script is called directly
 if __name__ == "__main__":
     reg_list = parse_arguments()
+    print_mmio_info(reg_list)
     create_vs(reg_list)
+    vs_print(OK, f"Generated MMIOs for {vs_name_suffix}.")
