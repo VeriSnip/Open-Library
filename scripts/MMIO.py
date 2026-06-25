@@ -16,7 +16,6 @@ from VeriSnip.vs_colours import *
 from reg import register
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
-vs_name = f"MMIO_{vs_name_suffix}.vs"
 
 assigns = ""
 read_always = ""
@@ -244,7 +243,7 @@ def generate_MMIO_signals(mm_reg_list):
         signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.signal};\n"
         signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.next};\n"
     signal_content += "\n"
-    generated_signals_file = f"{sys.argv[3]}_generated_signals.vs"
+    generated_signals_file = f"MMIO_{vs_name_suffix}_signals.vs"
     with open(generated_signals_file, "a") as file:
         file.write(signal_content)
 
@@ -255,7 +254,7 @@ def create_vs(reg_list):
     vs_content += write_registers_desc(reg_list)
     vs_content += read_registers_desc(reg_list)
     vs_content += registers_description(reg_list)
-    write_vs(vs_content, vs_name)
+    write_vs(vs_content, f"MMIO_{vs_name_suffix}.vs")
 
 
 def write_vs(string="", file_name="reg.vs"):
