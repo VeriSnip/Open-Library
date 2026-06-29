@@ -118,7 +118,7 @@ def get_lite_slave_ios(bus_prefix):
 """
 
 # TO DO: Fix wready and awready to add backpressure.
-def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
+def get_lite_slave_logic(bus_prefix, interface_name=None):
     return f"""
   // Automatically generated {bus_prefix} slave logic.
   // Write state machine
@@ -130,14 +130,16 @@ def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
         if ({bus_prefix}_awvalid_i & {bus_prefix}_awready_o & {bus_prefix}_wvalid_i & {bus_prefix}_wready_o) begin
           {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
           {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
-          {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           {bus_prefix}_bvalid_n = 1'b1;
-          if (~{bus_prefix}_bready_i) begin
+          if ({bus_prefix}_bvalid_o & ~{bus_prefix}_bready_i) begin
             {bus_prefix}_w_state_n = 2'b11;
             {bus_prefix}_awready_n = 1'b0;
             {bus_prefix}_wready_n = 1'b0;
+            {bus_prefix}_bid_n = {bus_prefix}_bid_o;
+            {bus_prefix}_bid_queue_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
+            {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
         end else begin
           if ({bus_prefix}_awvalid_i & {bus_prefix}_awready_o) begin
@@ -148,6 +150,7 @@ def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
             {bus_prefix}_w_state_n = 2'b10;
             {bus_prefix}_wready_n = 1'b0;
           end
+          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
         end
       end
       2'b01: begin
@@ -155,13 +158,19 @@ def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
           {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
           {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
           {bus_prefix}_bid_n = {bus_prefix}_awid_i;
-          if (~{bus_prefix}_bready_i) begin
+          {bus_prefix}_bvalid_n = 1'b1;
+          if ({bus_prefix}_bvalid_o & ~{bus_prefix}_bready_i) begin
             {bus_prefix}_w_state_n = 2'b11;
             {bus_prefix}_wready_n = 1'b0;
+            {bus_prefix}_bid_n = {bus_prefix}_bid_o;
+            {bus_prefix}_bid_queue_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_awready_n = 1'b1;
+            {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
+        end else begin
+          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
         end
       end
       2'b10: begin
@@ -169,18 +178,25 @@ def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
           {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
           {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
           {bus_prefix}_bid_n = {bus_prefix}_awid_i;
-          if (~{bus_prefix}_bready_i) begin
+          {bus_prefix}_bvalid_n = 1'b1;
+          if ({bus_prefix}_bvalid_o & ~{bus_prefix}_bready_i) begin
             {bus_prefix}_w_state_n = 2'b11;
             {bus_prefix}_awready_n = 1'b0;
+            {bus_prefix}_bid_n = {bus_prefix}_bid_o;
+            {bus_prefix}_bid_queue_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_wready_n = 1'b1;
+            {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
+        end else begin
+          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
         end
       end
       2'b11: begin
         {bus_prefix}_w_state_n = 2'b11;
         if ({bus_prefix}_bready_i) begin
+          {bus_prefix}_bid_n = {bus_prefix}_bid_queue;
           {bus_prefix}_w_state_n = 2'b00;
           {bus_prefix}_awready_n = 1'b1;
           {bus_prefix}_wready_n = 1'b1;
@@ -231,6 +247,7 @@ def get_lite_slave_logic_alt(bus_prefix, interface_name=None):
     {bus_prefix}_wstrb_q, DATA_WIDTH/8, 0, rst_i, , _n
     {bus_prefix}_bvalid_o, 1, 0, rst_i, , _n
     {bus_prefix}_bid_o, 1, 0, rst_i, , _n
+    {bus_prefix}_bid_queue, 1, 0, rst_i, , _n
     {bus_prefix}_bresp_o, 2, 0, rst_i, , 2'b00
     {bus_prefix}_r_state, 1, 0, rst_i, , _n
     {bus_prefix}_arvalid_q, 1, 0, rst_i, , _n
