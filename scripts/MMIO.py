@@ -46,21 +46,19 @@ class memory_mapped_register:
         self.set_sel()
 
     def set_address(self, mm_reg_address):
-        if "address=" in mm_reg_address:
-            mm_reg_address = mm_reg_address.split("=")[1]
-        self.address = mm_reg_address
+        mm_reg_address = mm_reg_address.strip()
+        if mm_reg_address.lower().startswith("0x"):
+            self.address = "'h" + mm_reg_address[2:]
+        else:
+            self.address = mm_reg_address
 
     def set_access_type(self, mm_reg_access_type):
-        if "access_type=" in mm_reg_access_type:
-            mm_reg_access_type = mm_reg_access_type.split("=")[1]
         if mm_reg_access_type == "":
             self.access_type = "R/W"
         else:
             self.access_type = mm_reg_access_type
 
     def set_default_value(self, mm_reg_default_value):
-        if "default=" in mm_reg_default_value:
-            mm_reg_default_value = mm_reg_default_value.split("=")[1]
         if mm_reg_default_value == "":
             self.default_value = self.reg.signal
         else:
