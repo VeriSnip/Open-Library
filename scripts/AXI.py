@@ -36,6 +36,7 @@ class AXIInterface:
         self.buses = [AXIConfiguration(conf.strip() + " " + self.interface_name) for conf in self.conf_list]
 
     def generate(self):
+        parameters_content = ""
         ios_content = ""
         logic_content = ""
         signals_content = ""
@@ -45,6 +46,7 @@ class AXIInterface:
                 vs_print(INFO, f"Generating AXI-Lite {bus.node} {bus.name} interface.")
                 prefix = f"AXIL_{bus.name}" if bus.name else "AXIL"
                 if bus.node == "Slave":
+                    parameters_content += get_lite_slave_parameters(prefix)
                     ios_content += get_lite_slave_ios(prefix)
                     logic_content += get_lite_slave_logic(prefix, bus.name)
                     signals_content += get_lite_slave_signals(prefix)
@@ -76,16 +78,49 @@ class AXIInterface:
                     signals_content += get_full_master_signals()
 
         name = "_" + self.interface_name if self.interface_name else ""
+        if parameters_content:
+            write_vs(parameters_content, f"AXI_parameters{name}.vs")
         if ios_content:
             write_vs(ios_content, f"AXI_ios{name}.vs")
-        if logic_content:
-            write_vs(logic_content, f"AXI_logic{name}.vs")
         if signals_content:
             write_vs(signals_content, f"AXI_signals{name}.vs")
+        if logic_content:
+            write_vs(logic_content, f"AXI_logic{name}.vs")
         
         name = " " + self.interface_name if self.interface_name else ""
         vs_print(OK, f"Generated AXI{name} interface.")
 
+
+def get_lite_slave_parameters(bus_prefix):
+  return f"""
+  parameter {bus_prefix}_ADDR_WIDTH = 32;
+  parameter {bus_prefix}_DATA_WIDTH = 32;
+  parameter {bus_prefix}_ID_W_WIDTH = 1;
+  parameter {bus_prefix}_ID_R_WIDTH = 1;
+"""
+
+def get_lite_slave_signals(bus_prefix):
+    return f"""
+  // Generated signals for AXI-Lite Slave
+  reg [1:0] {bus_prefix}_w_state;
+  reg {bus_prefix}_awvalid_q;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
+  reg {bus_prefix}_wvalid_q;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_n;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_q;
+  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_n;
+  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_q;
+  reg {bus_prefix}_bvalid_n;
+  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_n;
+  reg {bus_prefix}_r_state;
+  reg {bus_prefix}_arvalid_q;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
+  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
+"""
 
 def get_lite_slave_ios(bus_prefix):
     return f"""
@@ -93,27 +128,29 @@ def get_lite_slave_ios(bus_prefix):
     input  wire {bus_prefix}_awvalid_i,
     output  reg {bus_prefix}_awready_o,
     output  reg {bus_prefix}_awready_n,
-    input  wire [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
-    output  reg [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n,
+    input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
+    input  wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
+    output  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n,
     input  wire [2:0] {bus_prefix}_awprot_i,
     input  wire {bus_prefix}_wvalid_i,
     output  reg {bus_prefix}_wready_o,
     output  reg {bus_prefix}_wready_n,
-    input  wire [DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
-    input  wire [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
+    input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
+    input  wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
     output  reg {bus_prefix}_bvalid_o,
     input  wire {bus_prefix}_bready_i,
+    output  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_o,
     output  reg [1:0] {bus_prefix}_bresp_o,
     input  wire {bus_prefix}_arvalid_i,
     output  reg {bus_prefix}_arready_o,
     output  reg {bus_prefix}_arready_n,
-    input   reg {bus_prefix}_arid_i,
-    input  wire [ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
-    output  reg [ADDR_WIDTH-1:0] {bus_prefix}_araddr_n,
+    input  wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arid_i,
+    input  wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
+    output  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n,
     output  reg {bus_prefix}_rvalid_o,
     input  wire {bus_prefix}_rready_i,
-    output  reg {bus_prefix}_rid_o,
-    output  reg [DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
+    output  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
+    output  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
     output  reg [1:0] {bus_prefix}_rresp_o,
 """
 
@@ -123,6 +160,16 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
   // Automatically generated {bus_prefix} slave logic.
   // Write state machine
   always @(*) begin
+    // 1. DEFAULT ASSIGNMENTS (Prevents all latches!)
+    {bus_prefix}_w_state_n   = {bus_prefix}_w_state;
+    {bus_prefix}_awready_n   = {bus_prefix}_awready_o;
+    {bus_prefix}_wready_n    = {bus_prefix}_wready_o;
+    {bus_prefix}_wdata_n     = {bus_prefix}_wdata_q;
+    {bus_prefix}_wstrb_n     = {bus_prefix}_wstrb_q;
+    {bus_prefix}_bid_n       = {bus_prefix}_bid_o;
+    {bus_prefix}_bid_queue_n = {bus_prefix}_bid_queue;
+    {bus_prefix}_bvalid_n    = {bus_prefix}_bvalid_o;
+    // 2. STATE MACHINE
     case({bus_prefix}_w_state)
       2'b00: begin
         {bus_prefix}_awready_n = 1'b1;
@@ -194,7 +241,6 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
         end
       end
       2'b11: begin
-        {bus_prefix}_w_state_n = 2'b11;
         if ({bus_prefix}_bready_i) begin
           {bus_prefix}_bid_n = {bus_prefix}_bid_queue;
           {bus_prefix}_w_state_n = 2'b00;
@@ -240,51 +286,26 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
     {bus_prefix}_w_state, 1, 0, rst_i, , _n
     {bus_prefix}_awvalid_q, 1, 0, rst_i, , _n
     {bus_prefix}_awready_o, 1, 0, rst_i, , _n
-    {bus_prefix}_awaddr_q, ADDR_WIDTH, 0, rst_i, , _n
+    {bus_prefix}_awaddr_q, {bus_prefix}_ADDR_WIDTH, 0, rst_i, , _n
     {bus_prefix}_wvalid_q, 1, 0, rst_i, , _n
     {bus_prefix}_wready_o, 1, 0, rst_i, , _n
-    {bus_prefix}_wdata_q, DATA_WIDTH, 0, rst_i, , _n
-    {bus_prefix}_wstrb_q, DATA_WIDTH/8, 0, rst_i, , _n
+    {bus_prefix}_wdata_q, {bus_prefix}_DATA_WIDTH, 0, rst_i, , _n
+    {bus_prefix}_wstrb_q, {bus_prefix}_DATA_WIDTH/8, 0, rst_i, , _n
     {bus_prefix}_bvalid_o, 1, 0, rst_i, , _n
-    {bus_prefix}_bid_o, 1, 0, rst_i, , _n
+    {bus_prefix}_bid_o, {bus_prefix}_ID_W_WIDTH, 0, rst_i, , _n
     {bus_prefix}_bid_queue, 1, 0, rst_i, , _n
     {bus_prefix}_bresp_o, 2, 0, rst_i, , 2'b00
     {bus_prefix}_r_state, 1, 0, rst_i, , _n
     {bus_prefix}_arvalid_q, 1, 0, rst_i, , _n
     {bus_prefix}_arready_o, 1, 0, rst_i, , _n
-    {bus_prefix}_araddr_q, ADDR_WIDTH, 0, rst_i, , _n
+    {bus_prefix}_araddr_q, {bus_prefix}_ADDR_WIDTH, 0, rst_i, , _n
     {bus_prefix}_rvalid_o, 1, 0, rst_i, , _n
-    {bus_prefix}_rid_o, 1, 0, rst_i, , _n
-    {bus_prefix}_rdata_o, DATA_WIDTH, 0, rst_i, , _n
+    {bus_prefix}_rid_o, {bus_prefix}_ID_R_WIDTH, 0, rst_i, , _n
+    {bus_prefix}_rdata_o, {bus_prefix}_DATA_WIDTH, 0, rst_i, , _n
     {bus_prefix}_rresp_o, 2, 0, rst_i, , 2'b00
     */
 """
 # I should add global resets to register lists
-
-
-def get_lite_slave_signals(bus_prefix):
-    return f"""
-  // Additional signals for AXI-Lite Slave
-  reg [1:0] {bus_prefix}_w_state;
-  reg {bus_prefix}_awvalid_q;
-  reg [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
-  reg [ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
-  reg {bus_prefix}_wvalid_q;
-  reg [DATA_WIDTH-1:0] {bus_prefix}_wdata_n;
-  reg [DATA_WIDTH-1:0] {bus_prefix}_wdata_q;
-  reg [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_n;
-  reg [DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_q;
-  reg {bus_prefix}_bvalid_n;
-  reg {bus_prefix}_bid_n;
-  reg {bus_prefix}_r_state;
-  reg {bus_prefix}_arvalid_q;
-  reg [ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
-  reg [ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
-  reg {bus_prefix}_rid_n;
-  reg [DATA_WIDTH-1:0] {bus_prefix}_rdata;
-  reg [DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
-  reg {bus_prefix}_r_success;
-"""
 
 
 def get_lite_master_ios(bus_prefix):
