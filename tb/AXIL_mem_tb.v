@@ -159,7 +159,7 @@ module AXIL_mem_tb ();
 
       // Wait until both address and data are accepted.
       @(negedge clk);
-      while (!(AXIL_awvalid_i && AXIL_awready_o && AXIL_wvalid_i && AXIL_wready_o)) @(negedge clk);
+      while (!(AXIL_awready_o && AXIL_wready_o)) @(negedge clk);
       AXIL_awvalid_i = 1'b0;
       AXIL_wvalid_i  = 1'b0;
 
@@ -170,10 +170,6 @@ module AXIL_mem_tb ();
       // Update the reference model (byte enables honoured).
       widx = word_index(addr);
       for (b = 0; b < STRB_WIDTH; b = b + 1) if (strb[b]) ref_mem[widx][8*b+:8] = data[8*b+:8];
-
-      // Let the response be consumed (bready held high) so the bus is idle.
-      @(negedge clk);
-      while (AXIL_bvalid_o) @(negedge clk);
     end
   endtask
 
@@ -190,17 +186,13 @@ module AXIL_mem_tb ();
       AXIL_arid_i    = id;
 
       @(negedge clk);
-      while (!(AXIL_arvalid_i && AXIL_arready_o)) @(negedge clk);
+      while (!(AXIL_arready_o)) @(negedge clk);
       AXIL_arvalid_i = 1'b0;
 
       while (!AXIL_rvalid_o) @(negedge clk);
       exp = ref_mem[word_index(addr)];
       expect_eq("read RDATA", AXIL_rdata_o, exp);
       expect_eq("read RID", AXIL_rid_o, id);
-
-      // Let the data beat be consumed (rready held high) so the bus is idle.
-      @(negedge clk);
-      while (AXIL_rvalid_o) @(negedge clk);
     end
   endtask
 
@@ -258,6 +250,8 @@ module AXIL_mem_tb ();
 
     // ---- Test 5: back-to-back streaming -----------------------------------
     $display("\n--- Test 5: back-to-back transactions ---");
+    // This test needs fixing. Currently, it implements the same as test 2.
+    // I'm unsure of what it is suppose to evaluate. Maybe we should remove it.
     for (i = 0; i < 16; i = i + 1) begin
       a = 32'h0000_0400 + (i << 2);
       axil_write(a, 2'd1, 32'h5A5A_0000 + i, 4'hF);
@@ -269,6 +263,7 @@ module AXIL_mem_tb ();
 
     // ---- Test 6: write response back-pressure (bready held low) -----------
     $display("\n--- Test 6: write-response back-pressure ---");
+    @(negedge clk);
     AXIL_bready_i = 1'b0;
     @(negedge clk);
     AXIL_awvalid_i = 1'b1;
@@ -278,7 +273,7 @@ module AXIL_mem_tb ();
     AXIL_wdata_i   = 32'h600D_F00D;
     AXIL_wstrb_i   = 4'hF;
     @(negedge clk);
-    while (!(AXIL_awvalid_i && AXIL_awready_o && AXIL_wvalid_i && AXIL_wready_o)) @(negedge clk);
+    while (!(AXIL_awready_o && AXIL_wready_o)) @(negedge clk);
     AXIL_awvalid_i = 1'b0;
     AXIL_wvalid_i  = 1'b0;
     while (!AXIL_bvalid_o) @(negedge clk);
@@ -296,13 +291,14 @@ module AXIL_mem_tb ();
 
     // ---- Test 7: read data back-pressure (rready held low) ----------------
     $display("\n--- Test 7: read-data back-pressure ---");
+    @(negedge clk);
     AXIL_rready_i = 1'b0;
     @(negedge clk);
     AXIL_arvalid_i = 1'b1;
     AXIL_araddr_i  = 32'h0000_0500;
     AXIL_arid_i    = 2'd3;
     @(negedge clk);
-    while (!(AXIL_arvalid_i && AXIL_arready_o)) @(negedge clk);
+    while (!AXIL_arready_o) @(negedge clk);
     AXIL_arvalid_i = 1'b0;
     while (!AXIL_rvalid_o) @(negedge clk);
     // Read data must stay asserted and stable while rready is low.
@@ -315,6 +311,16 @@ module AXIL_mem_tb ();
     AXIL_rready_i = 1'b1;  // accept the data
     @(negedge clk);
     while (AXIL_rvalid_o) @(negedge clk);
+
+    // ---- Missing tests ----------------------------------------------------
+    // ---- Test 8: write address first and data later -----------------------
+    // In this test we should set awvalid high one cycle before wvalid and check that awready drops. This is to check that the FSM enters state 01.
+    // ---- Test 9: write data first and address later -----------------------
+    // In this test we should set wvalid high one cycle before awvalid and check that wready drops. This is to check that the FSM enters state 10.
+    // ---- Test 10: Make as many write requests as possible with bready low before slave drops the awready and wready ----
+    // The expected number of possible requests is 2. There should be 3 parts in this test. The fist part should send awvalid and wvalid at the same time. Then we should test that the behaviour is the same when we send awvalid and wvalid in different clock cycles. This test checks if the FSM enter state 11 from states, 00, 01, and 10.
+    // ---- Test 11: Make as many read requests as possible with rready low before slave drops the arready ----------------
+    // The expected number of possible requests is 2.
 
     // ---- Summary ----------------------------------------------------------
     repeat (2) @(posedge clk);
