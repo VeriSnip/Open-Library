@@ -3,18 +3,19 @@
 # AXI.py script creates required AXI5 IOs and logic for Lite, Stream, and Full interfaces.
 # It generates two files:
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "AXI_[ios,signals,logic][_{interface/bus_name}].vs" // AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+#   `include "AXI_[ios,signals,logic][_{interface/bus_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
 # and
 #   `include "AXI_[ios,signals,logic][_{interface_name}].vs" /*
-#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
-#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
-#             AXI-[Lite,Full,Stream] [Master,Slave] {bus_name}
+#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
+#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
+#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
 #             ...
 #             */
 # Notes:
 # - {bus_name} is optional. If it is not provided, the script will use the interface name as the bus name.
 # - {interface_name} is optional. If it is not provided, the script will use the bus name as the interface name.
 
+from logging import Manager
 import subprocess
 import sys
 import os
@@ -42,22 +43,27 @@ class AXIInterface:
         signals_content = ""
 
         for bus in self.buses:
-            if bus.type == "AXI-Lite":
-                vs_print(INFO, f"Generating AXI-Lite {bus.node} {bus.name} interface.")
+            if bus.type == "AXI-Lite" and bus.node == "Manager":
+                  vs_print(WARNING, "AXI-Lite Manager interface not implemented yet.")
+                  pass
+            elif bus.type == "AXI-Lite" and bus.node == "Subordinate":
+                vs_print(INFO, f"Generating AXI-Lite Subordinate {bus.name} interface.")
                 prefix = f"AXIL_{bus.name}" if bus.name else "AXIL"
-                if bus.node == "Slave":
-                    parameters_content += get_lite_slave_parameters(prefix)
-                    ios_content += get_lite_slave_ios(prefix)
-                    logic_content += get_lite_slave_logic(prefix, bus.name)
-                    signals_content += get_lite_slave_signals(prefix)
-                else:  # master
-                    vs_print(WARNING, "AXI-Lite master interface not implemented yet.")
-                    pass
-            elif bus.type == "AXI-Stream":
-                vs_print(WARNING, "AXI-Stream interface not implemented yet.")
+                parameters_content += get_lite_s_parameters(prefix)
+                ios_content += get_lite_s_ios(prefix)
+                logic_content += get_lite_s_logic(prefix, bus.name)
+                signals_content += get_lite_s_signals(prefix)
+            elif bus.type == "AXI-Stream" and bus.node == "Manager":
+                vs_print(WARNING, "AXI-Stream Manager interface not implemented yet.")
                 pass
-            elif bus.type == "AXI-Full":
-                vs_print(WARNING, "AXI-Full interface not implemented yet.")
+            elif bus.type == "AXI-Stream" and bus.node == "Subordinate":
+                vs_print(WARNING, "AXI-Stream Subordinate interface not implemented yet.")
+                pass
+            elif bus.type == "AXI-Full" and bus.node == "Manager":
+                vs_print(WARNING, "AXI-Full Manager interface not implemented yet.")
+                pass
+            elif bus.type == "AXI-Full" and bus.node == "Subordinate":
+                vs_print(WARNING, "AXI-Full Subordinate interface not implemented yet.")
                 pass
             else:
                 vs_print(ERROR, f"Unknown AXI type: {bus.type}")
@@ -77,21 +83,20 @@ class AXIInterface:
         vs_print(OK, f"Generated AXI{name} interface.")
 
 
-def get_lite_slave_parameters(bus_prefix):
-  return f"""    // Generated parameters for AXI-Lite Slave
-    parameter {bus_prefix}_ADDR_WIDTH = 32,
-    parameter {bus_prefix}_DATA_WIDTH = 32,
-    parameter {bus_prefix}_ID_W_WIDTH = 1,
-    parameter {bus_prefix}_ID_R_WIDTH = 1,
+def get_lite_s_parameters(bus_prefix):
+  return f"""    // Generated parameters for AXI-Lite Subordinate
+    parameter integer {bus_prefix}_ADDR_WIDTH = 32,
+    parameter integer {bus_prefix}_DATA_WIDTH = 32,
+    parameter integer {bus_prefix}_ID_W_WIDTH = 1,
+    parameter integer {bus_prefix}_ID_R_WIDTH = 1,
 """
 
-def get_lite_slave_ios(bus_prefix):
-    return f"""    // Generated IOs for AXI-Lite Slave
+def get_lite_s_ios(bus_prefix):
+    return f"""    // Generated IOs for AXI-Lite Subordinate
     input  wire {bus_prefix}_awvalid_i,
     output  reg {bus_prefix}_awready_o,
     input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
     input  wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
-    input  wire [2:0] {bus_prefix}_awprot_i,
     input  wire {bus_prefix}_wvalid_i,
     output  reg {bus_prefix}_wready_o,
     input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
@@ -106,11 +111,11 @@ def get_lite_slave_ios(bus_prefix):
     output  reg {bus_prefix}_rvalid_o,
     input  wire {bus_prefix}_rready_i,
     output  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
-    output  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
+    output wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
 """
 
-def get_lite_slave_signals(bus_prefix):
-    return f"""  // Generated signals for AXI-Lite Slave
+def get_lite_s_signals(bus_prefix):
+    return f"""  // Generated signals for AXI-Lite Subordinate
   reg [1:0] {bus_prefix}_w_state;
   reg [1:0] {bus_prefix}_w_state_n;
   reg {bus_prefix}_awready_n;
@@ -138,14 +143,15 @@ def get_lite_slave_signals(bus_prefix):
   reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
   reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb;
   reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb_n;
+  reg {bus_prefix}_rvalid_n;
   reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
   reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb;
   reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb_n;
 """
 
 # TO DO: Fix wready and awready to add backpressure.
-def get_lite_slave_logic(bus_prefix, interface_name=None):
-    return f"""  // Generated logic for AXI-Lite Slave
+def get_lite_s_logic(bus_prefix, interface_name=None):
+    return f"""  // Generated logic for AXI-Lite Subordinate
   // Write state machine
   always @(*) begin
     // 1. DEFAULT ASSIGNMENTS
@@ -300,7 +306,7 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
           {bus_prefix}_r_state_n = 1'b0;
           {bus_prefix}_arready_n = 1'b1;
           {bus_prefix}_araddr_n = {bus_prefix}_araddr_sb;
-          {bus_prefix}_rid_n = {bus_prefix}_arid_sb;
+          {bus_prefix}_rid_n = {bus_prefix}_rid_sb;
         end
       end
       default: ;
@@ -308,22 +314,25 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
   end
 
   `include "reg_AXI_bus_prefix_{bus_prefix}_{interface_name}.vs"  /*
-    {bus_prefix}_w_state, 1, 0, rst, , _n
-    {bus_prefix}_awready_o, 1, 0, rst, , _n
-    {bus_prefix}_awaddr_q, {bus_prefix}_ADDR_WIDTH, 0, rst, , _n
-    {bus_prefix}_wready_o, 1, 0, rst, , _n
-    {bus_prefix}_wdata_q, {bus_prefix}_DATA_WIDTH, 0, rst, , _n
-    {bus_prefix}_wstrb_q, {bus_prefix}_DATA_WIDTH/8, 0, rst, , _n
-    {bus_prefix}_bvalid_o, 1, 0, rst, , _n
-    {bus_prefix}_bid_o, {bus_prefix}_ID_W_WIDTH, 0, rst, , _n
-    {bus_prefix}_bid_skid_buffer, {bus_prefix}_ID_W_WIDTH, 0, rst, , _n
-    {bus_prefix}_r_state, 1, 0, rst, , _n
-    {bus_prefix}_arready_o, 1, 0, rst, , _n
-    {bus_prefix}_araddr_q, {bus_prefix}_ADDR_WIDTH, 0, rst, , _n
-    {bus_prefix}_araddr_sb, {bus_prefix}_ADDR_WIDTH, 0, rst, , _n
-    {bus_prefix}_rvalid_o, 1, 0, rst, , _n
-    {bus_prefix}_rid_o, {bus_prefix}_ID_R_WIDTH, 0, rst, , _n
-    {bus_prefix}_rid_sb, {bus_prefix}_ID_R_WIDTH, 0, rst, , _n
+    {bus_prefix}_w_state   , 2                        , 0, sync_reset, , _n
+    {bus_prefix}_awready_o , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_awaddr_q  , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_awaddr_sb , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_wready_o  , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_wdata_q   , {bus_prefix}_DATA_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_wdata_sb  , {bus_prefix}_DATA_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_wstrb_q   , {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
+    {bus_prefix}_wstrb_sb  , {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
+    {bus_prefix}_bvalid_o  , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_bid_o     , {bus_prefix}_ID_W_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_bid_sb    , {bus_prefix}_ID_W_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_r_state   , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_arready_o , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_araddr_q  , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_araddr_sb , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_rvalid_o  , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_rid_o     , {bus_prefix}_ID_R_WIDTH  , 0, sync_reset, , _n
+    {bus_prefix}_rid_sb    , {bus_prefix}_ID_R_WIDTH  , 0, sync_reset, , _n
     */
 """
 # I should add global resets to register lists

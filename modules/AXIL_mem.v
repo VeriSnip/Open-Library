@@ -9,7 +9,7 @@ module AXIL_mem #(
     parameter integer ADDR_WIDTH = 32,
     parameter integer DATA_WIDTH = 32
 ) (
-    `include "AXI_ios.vs"  // AXI-Lite Slave
+    `include "AXI_ios.vs"  // AXI-Lite Subordinate
     // Generic IOs
     input wire clk_i,
     input wire arst_i
@@ -19,27 +19,24 @@ module AXIL_mem #(
   // ============================================================================
   `include "AXI_signals.vs"  // VS_NO_GENERATE
   reg [DATA_WIDTH-1:0] memory[2**ADDR_WIDTH];
-  reg [DATA_WIDTH-1:0] w_data;
+  reg sync_reset;
 
   // ============================================================================
   // Logic
   // ============================================================================
+  integer b;
   always @(posedge clk_i) begin
     // AXI write transaction -> write memory
-    memory[AXIL_awaddr_n[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]] <= w_data;
-  end
-
-  integer b;
-  always @(*) begin
     // Word-aligned index (drop byte-offset bits)
     for (b = 0; b < AXIL_DATA_WIDTH / 8; b = b + 1) begin
-      if (AXIL_wstrb_q[b]) begin
-        w_data[8*b+:8] = AXIL_wdata_q[8*b+:8];
+      if (AXIL_wstrb_n[b]) begin
+        memory[AXIL_awaddr_n[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]][8*b+:8] <=
+            AXIL_wdata_n[8*b+:8];
       end
     end
-    // AXI read transaction -> sample memory data
-    AXIL_rdata_o = memory[AXIL_araddr_q[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]];
   end
+  // AXI read transaction -> sample memory data
+  assign AXIL_rdata_o = memory[AXIL_araddr_q[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]];
 
   `include "synchronous_reset_from_async.vs"
 
