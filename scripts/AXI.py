@@ -124,12 +124,10 @@ def get_lite_s_signals(bus_prefix):
   reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb; // "sb" is an abbreviation for skid buffer
   reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb_n;
   reg {bus_prefix}_wready_n;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_q;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_n;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata;
   reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb;
   reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb_n;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_q;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_n;
+  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb;
   reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb;
   reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb_n;
   reg {bus_prefix}_bvalid_n;
@@ -160,9 +158,9 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
     {bus_prefix}_awaddr_n    = {bus_prefix}_awaddr_q;
     {bus_prefix}_awaddr_sb_n = {bus_prefix}_awaddr_sb;
     {bus_prefix}_wready_n    = {bus_prefix}_wready_o;
-    {bus_prefix}_wdata_n     = {bus_prefix}_wdata_q;
+    {bus_prefix}_wdata       = 0;
     {bus_prefix}_wdata_sb_n  = {bus_prefix}_wdata_sb;
-    {bus_prefix}_wstrb_n     = {bus_prefix}_wstrb_q;
+    {bus_prefix}_wstrb       = 0;
     {bus_prefix}_wstrb_sb_n  = {bus_prefix}_wstrb_sb;
     {bus_prefix}_bid_n       = {bus_prefix}_bid_o;
     {bus_prefix}_bid_sb_n    = {bus_prefix}_bid_sb;
@@ -182,8 +180,8 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
             {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_awaddr_n = {bus_prefix}_awaddr_i;
-            {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
-            {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
+            {bus_prefix}_wdata = {bus_prefix}_wdata_i;
+            {bus_prefix}_wstrb = {bus_prefix}_wstrb_i;
             {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
         end else begin
@@ -191,6 +189,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
             {bus_prefix}_w_state_n = 2'b01;
             {bus_prefix}_awready_n = 1'b0;
             {bus_prefix}_awaddr_sb_n = {bus_prefix}_awaddr_i;
+            {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else if ({bus_prefix}_wvalid_i & {bus_prefix}_wready_o) begin
             {bus_prefix}_w_state_n = 2'b10;
             {bus_prefix}_wready_n = 1'b0;
@@ -213,14 +212,13 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
             {bus_prefix}_wready_n = 1'b0;
             {bus_prefix}_wdata_sb_n = {bus_prefix}_wdata_i;
             {bus_prefix}_wstrb_sb_n = {bus_prefix}_wstrb_i;
-            {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_awready_n = 1'b1;
             {bus_prefix}_awaddr_n = {bus_prefix}_awaddr_sb;
-            {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
-            {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
-            {bus_prefix}_bid_n = {bus_prefix}_awid_i;
+            {bus_prefix}_wdata = {bus_prefix}_wdata_i;
+            {bus_prefix}_wstrb = {bus_prefix}_wstrb_i;
+            {bus_prefix}_bid_n = {bus_prefix}_bid_sb;
           end
         end else begin
           if ({bus_prefix}_bready_i) begin
@@ -230,9 +228,6 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
       end
       2'b10: begin
         if ({bus_prefix}_awvalid_i & {bus_prefix}_awready_o) begin
-          {bus_prefix}_wdata_n = {bus_prefix}_wdata_i;
-          {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_i;
-          {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           {bus_prefix}_bvalid_n = 1'b1;
           if ({bus_prefix}_bvalid_o & ~{bus_prefix}_bready_i) begin
             {bus_prefix}_w_state_n = 2'b11;
@@ -243,8 +238,8 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_awaddr_n = {bus_prefix}_awaddr_i;
             {bus_prefix}_wready_n = 1'b1;
-            {bus_prefix}_wdata_n = {bus_prefix}_wdata_sb;
-            {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_sb;
+            {bus_prefix}_wdata = {bus_prefix}_wdata_sb;
+            {bus_prefix}_wstrb = {bus_prefix}_wstrb_sb;
             {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
         end else begin
@@ -259,8 +254,8 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
           {bus_prefix}_awready_n = 1'b1;
           {bus_prefix}_awaddr_n = {bus_prefix}_awaddr_sb;
           {bus_prefix}_wready_n = 1'b1;
-          {bus_prefix}_wdata_n = {bus_prefix}_wdata_sb;
-          {bus_prefix}_wstrb_n = {bus_prefix}_wstrb_sb;
+          {bus_prefix}_wdata = {bus_prefix}_wdata_sb;
+          {bus_prefix}_wstrb = {bus_prefix}_wstrb_sb;
           {bus_prefix}_bid_n = {bus_prefix}_bid_sb;
         end
       end
@@ -319,9 +314,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
     {bus_prefix}_awaddr_q  , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_awaddr_sb , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_wready_o  , 1                        , 0, sync_reset, , _n
-    {bus_prefix}_wdata_q   , {bus_prefix}_DATA_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_wdata_sb  , {bus_prefix}_DATA_WIDTH  , 0, sync_reset, , _n
-    {bus_prefix}_wstrb_q   , {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
     {bus_prefix}_wstrb_sb  , {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
     {bus_prefix}_bvalid_o  , 1                        , 0, sync_reset, , _n
     {bus_prefix}_bid_o     , {bus_prefix}_ID_W_WIDTH  , 0, sync_reset, , _n

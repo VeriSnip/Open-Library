@@ -29,9 +29,9 @@ module AXIL_mem #(
     // AXI write transaction -> write memory
     // Word-aligned index (drop byte-offset bits)
     for (b = 0; b < AXIL_DATA_WIDTH / 8; b = b + 1) begin
-      if (AXIL_wstrb_n[b]) begin
+      if (AXIL_wstrb[b]) begin
         memory[AXIL_awaddr_n[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]][8*b+:8] <=
-            AXIL_wdata_n[8*b+:8];
+            AXIL_wdata[8*b+:8];
       end
     end
   end

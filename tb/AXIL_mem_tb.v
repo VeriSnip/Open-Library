@@ -248,18 +248,32 @@ module AXIL_mem_tb ();
       axil_read(32'h0000_0300, i[AXIL_ID_R_WIDTH-1:0]);
     end
 
-    // ---- Test 5: back-to-back streaming -----------------------------------
-    $display("\n--- Test 5: back-to-back transactions ---");
-    // This test needs fixing. Currently, it implements the same as test 2.
-    // I'm unsure of what it is suppose to evaluate. Maybe we should remove it.
+    // ---- Test 5: simultaneous read and write ------------------------------
+    $display("\n--- Test 5: simultaneous read and write ---");
+    // Pre-fill some memory to read from
     for (i = 0; i < 16; i = i + 1) begin
       a = 32'h0000_0400 + (i << 2);
       axil_write(a, 2'd1, 32'h5A5A_0000 + i, 4'hF);
     end
-    for (i = 0; i < 16; i = i + 1) begin
-      a = 32'h0000_0400 + (i << 2);
-      axil_read(a, 2'd2);
-    end
+
+    fork
+      begin : read_thread
+        integer r_i;
+        reg [AXIL_ADDR_WIDTH-1:0] r_a;
+        for (r_i = 0; r_i < 16; r_i = r_i + 1) begin
+          r_a = 32'h0000_0400 + (r_i << 2);
+          axil_read(r_a, 2'd2);
+        end
+      end
+      begin : write_thread
+        integer w_i;
+        reg [AXIL_ADDR_WIDTH-1:0] w_a;
+        for (w_i = 0; w_i < 16; w_i = w_i + 1) begin
+          w_a = 32'h0000_0440 + (w_i << 2);
+          axil_write(w_a, 2'd3, 32'hC3C3_0000 + w_i, 4'hF);
+        end
+      end
+    join
 
     // ---- Test 6: write response back-pressure (bready held low) -----------
     $display("\n--- Test 6: write-response back-pressure ---");
@@ -312,15 +326,232 @@ module AXIL_mem_tb ();
     @(negedge clk);
     while (AXIL_rvalid_o) @(negedge clk);
 
-    // ---- Missing tests ----------------------------------------------------
     // ---- Test 8: write address first and data later -----------------------
-    // In this test we should set awvalid high one cycle before wvalid and check that awready drops. This is to check that the FSM enters state 01.
+    $display("\n--- Test 8: write address first and data later ---");
+    @(negedge clk);
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0600;
+    AXIL_awid_i    = 2'd0;
+    @(negedge clk);
+    expect_eq("awready dropped", AXIL_awready_o, 1'b0);
+    AXIL_awvalid_i = 1'b0;
+
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h1111_2222;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    AXIL_wvalid_i = 1'b0;
+
+    while (!AXIL_bvalid_o) @(negedge clk);
+    expect_eq("write BID", AXIL_bid_o, 2'd0);
+
+    ref_mem[word_index(32'h0000_0600)] = 32'h1111_2222;
+    axil_read(32'h0000_0600, 2'd0);
+
     // ---- Test 9: write data first and address later -----------------------
-    // In this test we should set wvalid high one cycle before awvalid and check that wready drops. This is to check that the FSM enters state 10.
+    $display("\n--- Test 9: write data first and address later ---");
+    @(negedge clk);
+    AXIL_wvalid_i = 1'b1;
+    AXIL_wdata_i  = 32'h3333_4444;
+    AXIL_wstrb_i  = 4'hF;
+    @(negedge clk);
+    expect_eq("wready dropped", AXIL_wready_o, 1'b0);
+    AXIL_wvalid_i  = 1'b0;
+
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0604;
+    AXIL_awid_i    = 2'd1;
+    @(negedge clk);
+    AXIL_awvalid_i = 1'b0;
+
+    while (!AXIL_bvalid_o) @(negedge clk);
+    expect_eq("write BID", AXIL_bid_o, 2'd1);
+
+    ref_mem[word_index(32'h0000_0604)] = 32'h3333_4444;
+    axil_read(32'h0000_0604, 2'd1);
+
     // ---- Test 10: Make as many write requests as possible with bready low before slave drops the awready and wready ----
-    // The expected number of possible requests is 2. There should be 3 parts in this test. The fist part should send awvalid and wvalid at the same time. Then we should test that the behaviour is the same when we send awvalid and wvalid in different clock cycles. This test checks if the FSM enter state 11 from states, 00, 01, and 10.
+    $display("\n--- Test 10: write requests with bready low ---");
+    @(negedge clk);
+    AXIL_bready_i = 1'b0;
+
+    // Part 1: from state 00 (send awvalid and wvalid at the same time)
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0700;
+    AXIL_awid_i    = 2'd0;
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'hAAAA_BBBB;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    // Request 1 accepted
+    AXIL_awaddr_i = 32'h0000_0704;
+    AXIL_awid_i   = 2'd1;
+    AXIL_wdata_i  = 32'hCCCC_DDDD;
+    @(negedge clk);
+    // Request 2 accepted, now awready and wready should drop
+    expect_eq("awready dropped", AXIL_awready_o, 1'b0);
+    expect_eq("wready dropped", AXIL_wready_o, 1'b0);
+
+    AXIL_awaddr_i = 32'h0000_0708;
+    AXIL_awid_i   = 2'd2;
+    AXIL_wdata_i  = 32'hEEEE_FFFF;
+    @(negedge clk);
+    expect_eq("awready still 0", AXIL_awready_o, 1'b0);
+    expect_eq("wready still 0", AXIL_wready_o, 1'b0);
+    AXIL_awvalid_i = 1'b0;
+    AXIL_wvalid_i  = 1'b0;
+
+    // Response must stay asserted and stable while bready is low.
+    for (i = 0; i < 4; i = i + 1) begin
+      @(negedge clk);
+      expect_eq("bvalid held", AXIL_bvalid_o, 1'b1);
+      expect_eq("bid held", AXIL_bid_o, 2'd0);
+    end
+
+    // Accept responses
+    AXIL_bready_i  = 1'b1;
+    @(negedge clk);
+    while (AXIL_bvalid_o) @(negedge clk);
+
+    ref_mem[word_index(32'h0000_0700)] = 32'hAAAA_BBBB;
+    ref_mem[word_index(32'h0000_0704)] = 32'hCCCC_DDDD;
+    axil_read(32'h0000_0700, 2'd0);
+    axil_read(32'h0000_0704, 2'd1);
+
+    // Part 2: from state 01 (awvalid first, then wvalid)
+    @(negedge clk);
+    AXIL_bready_i = 1'b0;
+
+    // Request 1
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0708;
+    AXIL_awid_i    = 2'd2;
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h1111_1111;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    AXIL_awvalid_i = 1'b0;
+    AXIL_wvalid_i  = 1'b0;
+
+    // Request 2 (awvalid first)
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_070C;
+    AXIL_awid_i    = 2'd3;
+    @(negedge clk);
+    expect_eq("awready dropped in 01", AXIL_awready_o, 1'b0);
+    AXIL_awvalid_i = 1'b0;
+    AXIL_awid_i    = 2'd0; // Change awid to uncover bug
+
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h2222_2222;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    expect_eq("wready dropped in 11", AXIL_wready_o, 1'b0);
+    AXIL_wvalid_i = 1'b0;
+
+    // Response must stay asserted and stable while bready is low.
+    for (i = 0; i < 4; i = i + 1) begin
+      @(negedge clk);
+      expect_eq("bvalid held", AXIL_bvalid_o, 1'b1);
+      expect_eq("bid held", AXIL_bid_o, 2'd2);
+    end
+
+    // Accept responses
+    AXIL_bready_i = 1'b1;
+    @(negedge clk);
+    while (AXIL_bvalid_o) @(negedge clk);
+
+    ref_mem[word_index(32'h0000_0708)] = 32'h1111_1111;
+    ref_mem[word_index(32'h0000_070C)] = 32'h2222_2222;
+    axil_read(32'h0000_0708, 2'd2);
+    axil_read(32'h0000_070C, 2'd3);
+
+    // Part 3: from state 10 (wvalid first, then awvalid)
+    @(negedge clk);
+    AXIL_bready_i = 1'b0;
+
+    // Request 1
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0710;
+    AXIL_awid_i    = 2'd0;
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h3333_3333;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    AXIL_awvalid_i = 1'b0;
+    AXIL_wvalid_i  = 1'b0;
+
+    // Request 2 (wvalid first)
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h4444_4444;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    expect_eq("wready dropped in 10", AXIL_wready_o, 1'b0);
+    AXIL_wvalid_i  = 1'b0;
+    AXIL_wdata_i   = 32'h0000_0000; // Change wdata to uncover bug
+
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0714;
+    AXIL_awid_i    = 2'd1;
+    @(negedge clk);
+    expect_eq("awready dropped in 11", AXIL_awready_o, 1'b0);
+    AXIL_awvalid_i = 1'b0;
+
+    // Response must stay asserted and stable while bready is low.
+    for (i = 0; i < 4; i = i + 1) begin
+      @(negedge clk);
+      expect_eq("bvalid held", AXIL_bvalid_o, 1'b1);
+      expect_eq("bid held", AXIL_bid_o, 2'd0);
+    end
+
+    // Accept responses
+    AXIL_bready_i  = 1'b1;
+    @(negedge clk);
+    while (AXIL_bvalid_o) @(negedge clk);
+
+    ref_mem[word_index(32'h0000_0710)] = 32'h3333_3333;
+    ref_mem[word_index(32'h0000_0714)] = 32'h4444_4444;
+    axil_read(32'h0000_0710, 2'd0);
+    axil_read(32'h0000_0714, 2'd1);
+
     // ---- Test 11: Make as many read requests as possible with rready low before slave drops the arready ----------------
-    // The expected number of possible requests is 2.
+    $display("\n--- Test 11: read requests with rready low ---");
+    @(negedge clk);
+    AXIL_rready_i = 1'b0;
+
+    AXIL_arvalid_i = 1'b1;
+    AXIL_araddr_i  = 32'h0000_0700;
+    AXIL_arid_i    = 2'd0;
+    @(negedge clk);
+    // Request 1 accepted
+    AXIL_araddr_i = 32'h0000_0704;
+    AXIL_arid_i   = 2'd1;
+    @(negedge clk);
+    // Request 2 accepted, now arready should drop
+    expect_eq("arready dropped", AXIL_arready_o, 1'b0);
+
+    AXIL_araddr_i = 32'h0000_0708;
+    AXIL_arid_i   = 2'd2;
+    @(negedge clk);
+    expect_eq("arready still 0", AXIL_arready_o, 1'b0);
+    AXIL_arvalid_i = 1'b0;
+
+    // Read data must stay asserted and stable while rready is low.
+    for (i = 0; i < 4; i = i + 1) begin
+      @(negedge clk);
+      expect_eq("rvalid held", AXIL_rvalid_o, 1'b1);
+      expect_eq("rdata held", AXIL_rdata_o, 32'hAAAA_BBBB);
+      expect_eq("rid held", AXIL_rid_o, 2'd0);
+    end
+
+    // Accept responses
+    expect_eq("read 1 data", AXIL_rdata_o, 32'hAAAA_BBBB);
+    expect_eq("read 1 id", AXIL_rid_o, 2'd0);
+    AXIL_rready_i = 1'b1;
+    @(negedge clk);
+    expect_eq("read 2 data", AXIL_rdata_o, 32'hCCCC_DDDD);
+    expect_eq("read 2 id", AXIL_rid_o, 2'd1);
+    while (AXIL_rvalid_o) @(negedge clk);
 
     // ---- Summary ----------------------------------------------------------
     repeat (2) @(posedge clk);
