@@ -409,7 +409,7 @@ module AXIL_mem_tb ();
     end
 
     // Accept responses
-    AXIL_bready_i  = 1'b1;
+    AXIL_bready_i = 1'b1;
     @(negedge clk);
     while (AXIL_bvalid_o) @(negedge clk);
 
@@ -505,7 +505,7 @@ module AXIL_mem_tb ();
     end
 
     // Accept responses
-    AXIL_bready_i  = 1'b1;
+    AXIL_bready_i = 1'b1;
     @(negedge clk);
     while (AXIL_bvalid_o) @(negedge clk);
 
