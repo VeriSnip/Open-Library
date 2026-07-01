@@ -174,7 +174,7 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
             {bus_prefix}_awready_n = 1'b0;
             {bus_prefix}_wready_n = 1'b0;
             {bus_prefix}_bid_n = {bus_prefix}_bid_o;
-            {bus_prefix}_bid_skid_buffer_n = {bus_prefix}_awid_i;
+            {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_bid_n = {bus_prefix}_awid_i;
@@ -185,13 +185,18 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
           if ({bus_prefix}_awvalid_i & {bus_prefix}_awready_o) begin
             {bus_prefix}_w_state_n = 2'b01;
             {bus_prefix}_awready_n = 1'b0;
-            {bus_prefix}_wready_n = 1'b1;
+            {bus_prefix}_awaddr_sb_n = {bus_prefix}_awaddr_i;
           end else if ({bus_prefix}_wvalid_i & {bus_prefix}_wready_o) begin
             {bus_prefix}_w_state_n = 2'b10;
-            {bus_prefix}_awready_n = 1'b1;
             {bus_prefix}_wready_n = 1'b0;
+            {bus_prefix}_wdata_sb_n = {bus_prefix}_wdata_i;
+            {bus_prefix}_wstrb_sb_n = {bus_prefix}_wstrb_i;
           end
-          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
+          if ({bus_prefix}_bready_i) begin
+            {bus_prefix}_bvalid_n = 1'b0;
+          end
+          {bus_prefix}_awready_n = 1'b1;
+          {bus_prefix}_wready_n = 1'b1;
         end
       end
       2'b01: begin
@@ -204,14 +209,16 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
             {bus_prefix}_w_state_n = 2'b11;
             {bus_prefix}_wready_n = 1'b0;
             {bus_prefix}_bid_n = {bus_prefix}_bid_o;
-            {bus_prefix}_bid_skid_buffer_n = {bus_prefix}_awid_i;
+            {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_awready_n = 1'b1;
             {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
         end else begin
-          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
+          if ({bus_prefix}_bready_i) begin
+            {bus_prefix}_bvalid_n = 1'b0;
+          end
         end
       end
       2'b10: begin
@@ -224,19 +231,21 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
             {bus_prefix}_w_state_n = 2'b11;
             {bus_prefix}_awready_n = 1'b0;
             {bus_prefix}_bid_n = {bus_prefix}_bid_o;
-            {bus_prefix}_bid_skid_buffer_n = {bus_prefix}_awid_i;
+            {bus_prefix}_bid_sb_n = {bus_prefix}_awid_i;
           end else begin
             {bus_prefix}_w_state_n = 2'b00;
             {bus_prefix}_wready_n = 1'b1;
             {bus_prefix}_bid_n = {bus_prefix}_awid_i;
           end
         end else begin
-          {bus_prefix}_bvalid_n = {bus_prefix}_bready_i ? 1'b0 : {bus_prefix}_bvalid_o;
+          if ({bus_prefix}_bready_i) begin
+            {bus_prefix}_bvalid_n = 1'b0;
+          end
         end
       end
       2'b11: begin
         if ({bus_prefix}_bready_i) begin
-          {bus_prefix}_bid_n = {bus_prefix}_bid_skid_buffer;
+          {bus_prefix}_bid_n = {bus_prefix}_bid_sb;
           {bus_prefix}_w_state_n = 2'b00;
           {bus_prefix}_awready_n = 1'b1;
           {bus_prefix}_wready_n = 1'b1;
@@ -272,7 +281,7 @@ def get_lite_slave_logic(bus_prefix, interface_name=None):
             {bus_prefix}_rid_n = {bus_prefix}_arid_i;
           end
         end else begin
-          if ({bus_prefix}_rvalid_o & {bus_prefix}_rready_i) begin
+          if ({bus_prefix}_rready_i) begin
             {bus_prefix}_rvalid_n = 1'b0;
           end
           {bus_prefix}_arready_n = 1'b1;
