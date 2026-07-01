@@ -9,8 +9,8 @@ module AXIL_mem #(
     parameter integer ADDR_WIDTH = 32,
     parameter integer DATA_WIDTH = 32
 ) (
-    `include "AXI_ios.vs"  // VS_NO_GENERATE
-    // bitSANN IOs
+    `include "AXI_ios.vs"  // AXI-Lite Slave
+    // Generic IOs
     input wire clk_i,
     input wire arst_i
 );
@@ -43,8 +43,6 @@ module AXIL_mem #(
 
   `include "synchronous_reset_from_async.vs"
 
-  `include "AXI_logic.vs"  /*
-      AXI-Lite Slave
-    */
+  `include "AXI_logic.vs"  // VS_NO_GENERATE
 
 endmodule
