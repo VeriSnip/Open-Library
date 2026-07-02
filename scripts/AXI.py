@@ -60,7 +60,9 @@ class AXIInterface:
                 vs_print(WARNING, "AXI-Stream Subordinate interface not implemented yet.")
                 pass
             elif bus.type == "AXI-Full" and bus.node == "Manager":
-                vs_print(WARNING, "AXI-Full Manager interface not implemented yet.")
+                prefix = f"AXI_M_{bus.name}" if bus.name else "AXI_M"
+                parameters_content += get_full_m_parameters(prefix)
+                vs_print(WARNING, "AXI-Full Manager interface not fully implemented yet.")
                 pass
             elif bus.type == "AXI-Full" and bus.node == "Subordinate":
                 vs_print(WARNING, "AXI-Full Subordinate interface not implemented yet.")
@@ -336,6 +338,62 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
 """
 # I should add global resets to register lists
 
+def get_full_m_parameters(bus_prefix):
+    return f"""    // Generated Parameters for AXI-Full Manager
+    parameter string {bus_prefix}_AXI_Transport = "Ready",
+    parameter integer {bus_prefix}_ID_W_WIDTH = 1,
+    parameter integer {bus_prefix}_ADDR_WIDTH = 32,
+    parameter bit {bus_prefix}_LEN_Present = true,
+    parameter bit {bus_prefix}_SIZE_Present = true,
+    parameter bit {bus_prefix}_BURST_Present = true,
+    parameter bit {bus_prefix}_CACHE_Present = true,
+    parameter bit {bus_prefix}_PROT_Present = true,
+    parameter bit {bus_prefix}_QOS_Present = true,
+    parameter integer {bus_prefix}_DATA_WIDTH = 32,
+    parameter bit {bus_prefix}_WSTRB_Present = true,
+    parameter integer {bus_prefix}_BRESP_WIDTH = 2,
+    parameter integer {bus_prefix}_ID_R_WIDTH = 1,
+"""
+
+def get_full_m_ios(bus_prefix):
+    return f"""    // Generated IOs for AXI-Full Manager
+    output wire {bus_prefix}_awVALID_o,
+    input  wire {bus_prefix}_awREADY_i,
+    output wire [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
+    output wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
+    output wire [7:0] {bus_prefix}_awLEN_o,
+    output wire [2:0] {bus_prefix}_awSIZE_o,
+    output wire [1:0] {bus_prefix}_awBURST_o,
+    output wire [3:0] {bus_prefix}_awCACHE_o,
+    output wire [2:0] {bus_prefix}_awPROT_o,
+    output wire [3:0] {bus_prefix}_awQOS_o,
+    output wire {bus_prefix}_wVALID_o,
+    input  wire {bus_prefix}_wREADY_i,
+    output wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_o,
+    output wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_o,
+    output wire  {bus_prefix}_wLAST_o,
+    input  wire {bus_prefix}_bVALID_i,
+    output wire {bus_prefix}_bREADY_o,
+    input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bID_i,
+    input  wire [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_bRESP_i,
+    output wire {bus_prefix}_arVALID_o,
+    input  wire {bus_prefix}_arREADY_i,
+    output wire [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
+    output wire [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
+    output wire [7:0] {bus_prefix}_arLEN_o,
+    output wire [2:0] {bus_prefix}_arSIZE_o,
+    output wire [1:0] {bus_prefix}_arBURST_o,
+    output wire  {bus_prefix}_arLOCK_o,
+    output wire [3:0] {bus_prefix}_arCACHE_o,
+    output wire [2:0] {bus_prefix}_arPROT_o,
+    output wire [3:0] {bus_prefix}_arQOS_o,
+    input  wire {bus_prefix}_rVALID_i,
+    output wire {bus_prefix}_rREADY_o,
+    input  wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rID_i,
+    input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rDATA_i,
+    input  wire [1:0] {bus_prefix}_rRESP_i,
+    input  wire {bus_prefix}_rLAST_i,
+"""
 
 def write_vs(string, file_name):
     with open(file_name, "w") as file:
