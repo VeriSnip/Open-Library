@@ -62,6 +62,7 @@ class AXIInterface:
             elif bus.type == "AXI-Full" and bus.node == "Manager":
                 prefix = f"AXI_M_{bus.name}" if bus.name else "AXI_M"
                 parameters_content += get_full_m_parameters(prefix)
+                ios_content += get_full_m_ios(prefix)
                 vs_print(WARNING, "AXI-Full Manager interface not fully implemented yet.")
                 pass
             elif bus.type == "AXI-Full" and bus.node == "Subordinate":
