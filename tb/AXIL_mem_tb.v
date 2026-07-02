@@ -18,7 +18,7 @@ module AXIL_mem_tb ();
   // Memory depth is 2**ADDR_WIDTH words. Kept small so the simulator does not
   // have to allocate a huge array.
   localparam integer ADDR_WIDTH = 12;
-  localparam integer DATA_WIDTH = 32;
+  localparam integer DATA_WIDTH = AXIL_DATA_WIDTH;
   localparam integer STRB_WIDTH = AXIL_DATA_WIDTH / 8;
   // Number of addressable words (memory index is addr[ADDR_WIDTH-1:2]).
   localparam integer WORDS = 1 << (ADDR_WIDTH - 2);
@@ -63,7 +63,7 @@ module AXIL_mem_tb ();
   // --------------------------------------------------------------------------
   integer                       errors = 0;
   integer                       checks = 0;
-  reg     [     DATA_WIDTH-1:0] ref_mem        [0:WORDS-1];
+  reg     [     DATA_WIDTH-1:0] ref_mem        [WORDS];
 
   AXIL_mem #(
       .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH),
@@ -552,6 +552,90 @@ module AXIL_mem_tb ();
     expect_eq("read 2 data", AXIL_rdata_o, 32'hCCCC_DDDD);
     expect_eq("read 2 id", AXIL_rid_o, 2'd1);
     while (AXIL_rvalid_o) @(negedge clk);
+
+    //  ---- Test 12: Test write after read operation ------
+    $display("\n--- Test 12: write after read with rready low ---");
+    @(negedge clk);
+    axil_write(32'h0000_0800, 2'd0, 32'h0123_4567, 4'hF);
+
+    @(negedge clk);
+    AXIL_rready_i = 1'b0;
+    AXIL_arvalid_i = 1'b1;
+    AXIL_araddr_i  = 32'h0000_0800;
+    AXIL_arid_i    = 2'd1;
+    @(negedge clk);
+    while (!AXIL_arready_o) @(negedge clk);
+    AXIL_arvalid_i = 1'b0;
+
+    while (!AXIL_rvalid_o) @(negedge clk);
+    expect_eq("read 1 data initially", AXIL_rdata_o, 32'h0123_4567);
+
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0800;
+    AXIL_awid_i    = 2'd2;
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h89AB_CDEF;
+    AXIL_wstrb_i   = 4'hF;
+    @(negedge clk);
+    while (!(AXIL_awready_o && AXIL_wready_o)) @(negedge clk);
+    AXIL_awvalid_i = 1'b0;
+    AXIL_wvalid_i  = 1'b0;
+
+    while (!AXIL_bvalid_o) @(negedge clk);
+
+    for (i = 0; i < 4; i = i + 1) begin
+      @(negedge clk);
+      expect_eq("rdata held after write", AXIL_rdata_o, 32'h0123_4567);
+    end
+
+    AXIL_rready_i = 1'b1;
+    @(negedge clk);
+    while (AXIL_rvalid_o) @(negedge clk);
+
+    ref_mem[word_index(32'h0000_0800)] = 32'h89AB_CDEF;
+    axil_read(32'h0000_0800, 2'd3);
+
+    //  ---- Test 13: Simultaneous read and write ------
+    $display("\n--- Test 13: Simultaneous read and write to same address ---");
+    @(negedge clk);
+    axil_write(32'h0000_0900, 2'd0, 32'h1122_3344, 4'hF);
+
+    @(negedge clk);
+    AXIL_awvalid_i = 1'b1;
+    AXIL_awaddr_i  = 32'h0000_0900;
+    AXIL_awid_i    = 2'd1;
+    AXIL_wvalid_i  = 1'b1;
+    AXIL_wdata_i   = 32'h5566_7788;
+    AXIL_wstrb_i   = 4'hF;
+
+    AXIL_arvalid_i = 1'b1;
+    AXIL_araddr_i  = 32'h0000_0900;
+    AXIL_arid_i    = 2'd2;
+
+    @(negedge clk);
+    expect_eq("awready accepted", AXIL_awready_o, 1'b1);
+    expect_eq("wready accepted", AXIL_wready_o, 1'b1);
+    expect_eq("arready accepted", AXIL_arready_o, 1'b1);
+
+    AXIL_awvalid_i = 1'b0;
+    AXIL_wvalid_i  = 1'b0;
+    AXIL_arvalid_i = 1'b0;
+
+    fork
+      begin
+        while (!AXIL_bvalid_o) @(negedge clk);
+        expect_eq("write BID", AXIL_bid_o, 2'd1);
+      end
+      begin
+        while (!AXIL_rvalid_o) @(negedge clk);
+        expect_eq("read RID", AXIL_rid_o, 2'd2);
+        // Returns the old data because read and write happen on same edge (read-first memory behavior)
+        expect_eq("read RDATA (old value)", AXIL_rdata_o, 32'h1122_3344);
+      end
+    join
+
+    ref_mem[word_index(32'h0000_0900)] = 32'h5566_7788;
+    axil_read(32'h0000_0900, 2'd3);
 
     // ---- Summary ----------------------------------------------------------
     repeat (2) @(posedge clk);

@@ -36,7 +36,7 @@ module AXIL_mem #(
     end
   end
   // AXI read transaction -> sample memory data
-  assign AXIL_rdata_o = memory[AXIL_araddr_q[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]];
+  assign AXIL_rdata = memory[AXIL_araddr_n[ADDR_WIDTH-1:$clog2(AXIL_DATA_WIDTH/8)]];
 
   `include "synchronous_reset_from_async.vs"
 

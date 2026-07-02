@@ -93,58 +93,60 @@ def get_lite_s_parameters(bus_prefix):
 
 def get_lite_s_ios(bus_prefix):
     return f"""    // Generated IOs for AXI-Lite Subordinate
-    input  wire {bus_prefix}_awvalid_i,
-    output  reg {bus_prefix}_awready_o,
-    input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
-    input  wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
-    input  wire {bus_prefix}_wvalid_i,
-    output  reg {bus_prefix}_wready_o,
-    input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
-    input  wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
-    output  reg {bus_prefix}_bvalid_o,
-    input  wire {bus_prefix}_bready_i,
-    output  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_o,
-    input  wire {bus_prefix}_arvalid_i,
-    output  reg {bus_prefix}_arready_o,
-    input  wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arid_i,
-    input  wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
-    output  reg {bus_prefix}_rvalid_o,
-    input  wire {bus_prefix}_rready_i,
-    output  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
-    output wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
+    input wire {bus_prefix}_awvalid_i,
+    output reg {bus_prefix}_awready_o,
+    input wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
+    input wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
+    input wire {bus_prefix}_wvalid_i,
+    output reg {bus_prefix}_wready_o,
+    input wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
+    input wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
+    output reg {bus_prefix}_bvalid_o,
+    input wire {bus_prefix}_bready_i,
+    output reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_o,
+    input wire {bus_prefix}_arvalid_i,
+    output reg {bus_prefix}_arready_o,
+    input wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arid_i,
+    input wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
+    output reg {bus_prefix}_rvalid_o,
+    input wire {bus_prefix}_rready_i,
+    output reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
+    output reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
 """
 
 def get_lite_s_signals(bus_prefix):
     return f"""  // Generated signals for AXI-Lite Subordinate
-  reg [1:0] {bus_prefix}_w_state;
-  reg [1:0] {bus_prefix}_w_state_n;
-  reg {bus_prefix}_awready_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb; // "sb" is an abbreviation for skid buffer
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb_n;
-  reg {bus_prefix}_wready_n;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb_n;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb_n;
-  reg {bus_prefix}_bvalid_n;
-  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_n;
-  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb;
-  reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb_n;
-  reg {bus_prefix}_r_state;
-  reg {bus_prefix}_r_state_n;
-  reg {bus_prefix}_arready_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb_n;
-  reg {bus_prefix}_rvalid_n;
-  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
-  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb;
-  reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb_n;
+  reg  [1:0] {bus_prefix}_w_state;
+  reg  [1:0] {bus_prefix}_w_state_n;
+  reg  {bus_prefix}_awready_n;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb; // "sb" is an abbreviation for skid buffer
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb_n;
+  reg  {bus_prefix}_wready_n;
+  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata;
+  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb;
+  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb_n;
+  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb;
+  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb;
+  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb_n;
+  reg  {bus_prefix}_bvalid_n;
+  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_n;
+  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb;
+  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb_n;
+  reg  {bus_prefix}_r_state;
+  reg  {bus_prefix}_r_state_n;
+  reg  {bus_prefix}_arready_n;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb;
+  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb_n;
+  reg  {bus_prefix}_rvalid_n;
+  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
+  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb;
+  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb_n;
+  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata;
+  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
 """
 
 # TO DO: Fix wready and awready to add backpressure.
@@ -273,6 +275,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
     {bus_prefix}_rvalid_n    = {bus_prefix}_rvalid_o;
     {bus_prefix}_rid_n       = {bus_prefix}_rid_o;
     {bus_prefix}_rid_sb_n    = {bus_prefix}_rid_sb;
+    {bus_prefix}_rdata_n     = {bus_prefix}_rdata_o;
     // 2. STATE MACHINE
     case({bus_prefix}_r_state)
       1'b0: begin
@@ -287,6 +290,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
           end else begin
             {bus_prefix}_araddr_n = {bus_prefix}_araddr_i;
             {bus_prefix}_rid_n = {bus_prefix}_arid_i;
+            {bus_prefix}_rdata_n = {bus_prefix}_rdata;
           end
         end else begin
           if ({bus_prefix}_rready_i) begin
@@ -302,6 +306,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
           {bus_prefix}_arready_n = 1'b1;
           {bus_prefix}_araddr_n = {bus_prefix}_araddr_sb;
           {bus_prefix}_rid_n = {bus_prefix}_rid_sb;
+          {bus_prefix}_rdata_n = {bus_prefix}_rdata;
         end
       end
       default: ;
@@ -324,6 +329,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
     {bus_prefix}_araddr_q  , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_araddr_sb , {bus_prefix}_ADDR_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_rvalid_o  , 1                        , 0, sync_reset, , _n
+    {bus_prefix}_rdata_o   , {bus_prefix}_DATA_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_rid_o     , {bus_prefix}_ID_R_WIDTH  , 0, sync_reset, , _n
     {bus_prefix}_rid_sb    , {bus_prefix}_ID_R_WIDTH  , 0, sync_reset, , _n
     */
