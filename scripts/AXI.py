@@ -340,17 +340,17 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
 
 def get_full_m_parameters(bus_prefix):
     return f"""    // Generated Parameters for AXI-Full Manager
-    parameter string {bus_prefix}_AXI_Transport = "Ready",
+    //parameter string {bus_prefix}_AXI_Transport = "Ready",
     parameter integer {bus_prefix}_ID_W_WIDTH = 1,
     parameter integer {bus_prefix}_ADDR_WIDTH = 32,
-    parameter bit {bus_prefix}_LEN_Present = true,
-    parameter bit {bus_prefix}_SIZE_Present = true,
-    parameter bit {bus_prefix}_BURST_Present = true,
-    parameter bit {bus_prefix}_CACHE_Present = true,
-    parameter bit {bus_prefix}_PROT_Present = true,
-    parameter bit {bus_prefix}_QOS_Present = true,
+    //parameter reg {bus_prefix}_LEN_Present = 1,
+    //parameter reg {bus_prefix}_SIZE_Present = 1,
+    //parameter reg {bus_prefix}_BURST_Present = 1,
+    //parameter reg {bus_prefix}_CACHE_Present = 1,
+    //parameter reg {bus_prefix}_PROT_Present = 1,
+    //parameter reg {bus_prefix}_QOS_Present = 1,
     parameter integer {bus_prefix}_DATA_WIDTH = 32,
-    parameter bit {bus_prefix}_WSTRB_Present = true,
+    //parameter reg {bus_prefix}_WSTRB_Present = 1,
     parameter integer {bus_prefix}_BRESP_WIDTH = 2,
     parameter integer {bus_prefix}_ID_R_WIDTH = 1,
 """
@@ -364,6 +364,7 @@ def get_full_m_ios(bus_prefix):
     output wire [7:0] {bus_prefix}_awLEN_o,
     output wire [2:0] {bus_prefix}_awSIZE_o,
     output wire [1:0] {bus_prefix}_awBURST_o,
+    output wire  {bus_prefix}_awLOCK_o,
     output wire [3:0] {bus_prefix}_awCACHE_o,
     output wire [2:0] {bus_prefix}_awPROT_o,
     output wire [3:0] {bus_prefix}_awQOS_o,
