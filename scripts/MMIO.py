@@ -197,7 +197,7 @@ def write_registers_desc(mm_reg_list):
     for mm_reg in mm_reg_list:
         if "W" in mm_reg.access_type:
             w_desc += f"      if ({mm_reg.w_sel}) begin\n"
-            w_desc += f"        {mm_reg.reg.next} = w_data;\n"
+            w_desc += f"        {mm_reg.reg.next} = w_data[{mm_reg.reg.size}-1:0];\n"
             w_desc += "      end\n"
     w_desc += "    end\n"
     w_desc += "  end\n"
