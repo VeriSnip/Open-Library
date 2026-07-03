@@ -152,7 +152,6 @@ def get_lite_s_signals(bus_prefix):
   reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
 """
 
-# TO DO: Fix wready and awready to add backpressure.
 def get_lite_s_logic(bus_prefix, interface_name=None):
     return f"""  // Generated logic for AXI-Lite Subordinate
   // Write state machine
