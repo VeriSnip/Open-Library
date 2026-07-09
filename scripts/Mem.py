@@ -2,17 +2,16 @@
 
 # mem.py script creates a memory
 # To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "memory_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
+#   `include "Mem_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
 # where Type can be: RAM or ROM. The Init_file is optional, unless you are using a ROM.
 # Default values are: Type = None; Depth = None; Width = None; Init_file = None.
 
 
-import sys, re
+import sys
 
 from VeriSnip.vs_colours import *
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
-vs_name = f"memory_{vs_name_suffix}.vs"
 
 
 class Memory:
@@ -50,48 +49,59 @@ class Memory:
             exit(1)
 
 
-def memory_signals(mem):
-    verilog_code = f"// Automatically generated signals for {mem.name} memory\n"
-    verilog_code += f"reg [{mem.width}-1:0] {mem.name} [{mem.depth}];\n"
-    verilog_code += f"wire [$clog2({mem.depth})-1:0] {mem.name}_addr;\n"
-    verilog_code += f"wire [{mem.width}-1:0] {mem.name}_data_out;\n"
-    verilog_code += f"wire {mem.name}_read_en;\n"
-    if mem.type is "RAM":
-        verilog_code += f"wire [{mem.width}-1:0] {mem.name}_data_in;\n"
-        verilog_code += f"wire {mem.name}_write_en;\n"
+def addr_width(depth):
+    return f"(({depth}) <= 1 ? 0 : $clog2({depth})-1)"
 
-    generated_signals_file = f"{sys.argv[4]}_generated_signals.vs"
-    with open(generated_signals_file, "a") as file:
+
+def memory_signals(mem):
+    addr_msb = addr_width(mem.depth)
+    verilog_code = f"""  // Automatically generated signals for {mem.name} {mem.type} memory
+  reg [{mem.width}-1:0] {mem.name} [{mem.depth}];
+"""
+    if mem.type == "RAM":
+        verilog_code += f"  wire [{addr_msb}:0] {mem.name}_write_addr;\n"
+    verilog_code += f"  wire [{addr_msb}:0] {mem.name}_read_addr;\n"
+    verilog_code += f"  wire [{mem.width}-1:0] {mem.name}_data_out;\n"
+    if mem.type == "RAM":
+        verilog_code += f"  wire [{mem.width}-1:0] {mem.name}_data_in;\n"
+        verilog_code += f"  wire [{mem.width}/8-1:0] {mem.name}_write_en;\n"
+
+    with open(f"Mem_{vs_name_suffix}_signals.vs", "w") as file:
         file.write(verilog_code)
     return
 
 
 def memory_logic(mem):
-    verilog_code = f"// Automatically generated logic for {mem.name} memory\n"
+    verilog_code = f"  // Automatically generated logic for {mem.name} {mem.type} memory\n"
     if mem.type == "ROM":
         verilog_code += f"  initial begin\n"
         verilog_code += f'    $readmemh("{mem.init_file}", {mem.name});\n'
         verilog_code += f"  end\n\n"
         verilog_code += (
-            f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_addr];\n\n"
+            f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_read_addr];\n\n"
         )
     elif mem.type == "RAM":
         if mem.init_file != "":
-            verilog_code += f"  initial begin\n"
-            verilog_code += f'    $readmemh("{mem.init_file}", {mem.name});\n'
-            verilog_code += f"  end\n\n"
-        verilog_code += f"  always @(posedge clk) begin\n"
-        verilog_code += f"    if ({mem.name}_write_en) begin\n"
-        verilog_code += f"      {mem.name}[{mem.name}_addr] <= {mem.name}_data_in;\n"
-        verilog_code += f"    end\n"
-        verilog_code += f"  end\n\n"
-        verilog_code += (
-            f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_addr];\n\n"
-        )
+            verilog_code += f"""
+  initial begin
+    $readmemh("{mem.init_file}", {mem.name});
+  end
+"""
+        verilog_code += f"""
+  integer {mem.name}_b;
+  always @(posedge clk_i) begin
+    for ({mem.name}_b = 0; {mem.name}_b < {mem.width} / 8; {mem.name}_b = {mem.name}_b + 1) begin
+      if ({mem.name}_write_en[{mem.name}_b]) begin
+        {mem.name}[{mem.name}_write_addr][8*{mem.name}_b+:8] <= {mem.name}_data_in[8*{mem.name}_b+:8];
+      end
+    end
+  end
+  assign {mem.name}_data_out = {mem.name}[{mem.name}_read_addr];\n
+"""
     else:
         vs_print(ERROR, "Invalid memory type.")
 
-    with open(vs_name, "w") as file:
+    with open(f"Mem_{vs_name_suffix}.vs", "w") as file:
         file.write(verilog_code)
     return
 

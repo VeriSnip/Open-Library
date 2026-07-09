@@ -15,13 +15,12 @@ module AXIL_mem_tb ();
   localparam integer AXIL_DATA_WIDTH = 32;
   localparam integer AXIL_ID_W_WIDTH = 2;
   localparam integer AXIL_ID_R_WIDTH = 2;
-  // Memory depth is 2**ADDR_WIDTH words. Kept small so the simulator does not
+  // Memory depth is 2**MEM_ADDR_WIDTH words. Kept small so the simulator does not
   // have to allocate a huge array.
-  localparam integer ADDR_WIDTH = 12;
-  localparam integer DATA_WIDTH = AXIL_DATA_WIDTH;
+  localparam integer MEM_ADDR_WIDTH = 12;
   localparam integer STRB_WIDTH = AXIL_DATA_WIDTH / 8;
-  // Number of addressable words (memory index is addr[ADDR_WIDTH-1:2]).
-  localparam integer WORDS = 1 << (ADDR_WIDTH - 2);
+  // Number of addressable words (memory index is addr[MEM_ADDR_WIDTH-1:2]).
+  localparam integer WORDS = 1 << (MEM_ADDR_WIDTH - 2);
 
   // Clock and reset
   reg clk = 1'b0;
@@ -63,15 +62,14 @@ module AXIL_mem_tb ();
   // --------------------------------------------------------------------------
   integer                       errors = 0;
   integer                       checks = 0;
-  reg     [     DATA_WIDTH-1:0] ref_mem        [WORDS];
+  reg     [AXIL_DATA_WIDTH-1:0] ref_mem        [WORDS];
 
   AXIL_mem #(
       .AXIL_ADDR_WIDTH(AXIL_ADDR_WIDTH),
       .AXIL_DATA_WIDTH(AXIL_DATA_WIDTH),
       .AXIL_ID_W_WIDTH(AXIL_ID_W_WIDTH),
       .AXIL_ID_R_WIDTH(AXIL_ID_R_WIDTH),
-      .ADDR_WIDTH(ADDR_WIDTH),
-      .DATA_WIDTH(DATA_WIDTH)
+      .MEM_ADDR_WIDTH (MEM_ADDR_WIDTH)
   ) DUT (
       .AXIL_awvalid_i(AXIL_awvalid_i),
       .AXIL_awready_o(AXIL_awready_o),
@@ -178,7 +176,7 @@ module AXIL_mem_tb ();
   // Checks the returned data against the reference model and the returned ID.
   // --------------------------------------------------------------------------
   task axil_read(input [AXIL_ADDR_WIDTH-1:0] addr, input [AXIL_ID_R_WIDTH-1:0] id);
-    reg [DATA_WIDTH-1:0] exp;
+    reg [AXIL_DATA_WIDTH-1:0] exp;
     begin
       @(negedge clk);
       AXIL_arvalid_i = 1'b1;
