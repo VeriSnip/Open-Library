@@ -8,6 +8,7 @@
 #   */
 # Default values are: States = None; Current_state = None; Next_state = None; Condition = None.
 
+# Good article to follow while designing this script: https://www.linkedin.com/pulse/finite-state-machine-fsm-design-using-systemverilog-elaiyappan-92fpc
 
 import sys
 

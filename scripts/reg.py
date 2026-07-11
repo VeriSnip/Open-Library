@@ -32,12 +32,16 @@ class register:
 
         reg_properties = [reg_property.strip() for reg_property in reg_properties]
         # TO DO: function that parses reg_properties and is able to organize its values in a list
-        self.set_reg_name(reg_properties[0])
-        self.set_reg_size(reg_properties[1])
-        self.set_reg_rst_val(reg_properties[2])
-        self.set_reg_rst(reg_properties[3])
-        self.set_reg_en(reg_properties[4])
-        self.set_reg_next(reg_properties[5])
+        try:
+            self.set_reg_name(reg_properties[0])
+            self.set_reg_size(reg_properties[1])
+            self.set_reg_rst_val(reg_properties[2])
+            self.set_reg_rst(reg_properties[3])
+            self.set_reg_en(reg_properties[4])
+            self.set_reg_next(reg_properties[5])
+        except IndexError:
+            vs_print(ERROR, f"Not enough arguments for register {reg_properties[0]}.")
+            exit(1)
 
     def set_reg_name(self, reg_name):
         if "name=" in reg_name:
