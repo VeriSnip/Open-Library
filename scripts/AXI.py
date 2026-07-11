@@ -14,6 +14,7 @@
 # Notes:
 # - {bus_name} is optional. If it is not provided, the script will use the interface name as the bus name.
 # - {interface_name} is optional. If it is not provided, the script will use the bus name as the interface name.
+# - We use the term "beat" to refer to a single data transfer.
 
 from logging import Manager
 import subprocess
