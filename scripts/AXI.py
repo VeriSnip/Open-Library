@@ -63,8 +63,9 @@ class AXIInterface:
                 prefix = f"AXI_M_{bus.name}" if bus.name else "AXI_M"
                 parameters_content += get_full_m_parameters(prefix)
                 ios_content += get_full_m_ios(prefix)
-                vs_print(WARNING, "AXI-Full Manager interface not fully implemented yet.")
-                pass
+                signals_content += get_full_m_signals(prefix)
+                logic_content += get_full_m_logic(prefix)
+                vs_print(INFO, f"Generating AXI-Full Manager {bus.name} interface.")
             elif bus.type == "AXI-Full" and bus.node == "Subordinate":
                 vs_print(WARNING, "AXI-Full Subordinate interface not implemented yet.")
                 pass
@@ -357,43 +358,246 @@ def get_full_m_parameters(bus_prefix):
 
 def get_full_m_ios(bus_prefix):
     return f"""    // Generated IOs for AXI-Full Manager
-    output wire {bus_prefix}_awVALID_o,
-    input  wire {bus_prefix}_awREADY_i,
-    output wire [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
-    output wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
-    output wire [7:0] {bus_prefix}_awLEN_o,
-    output wire [2:0] {bus_prefix}_awSIZE_o,
-    output wire [1:0] {bus_prefix}_awBURST_o,
-    output wire  {bus_prefix}_awLOCK_o,
-    output wire [3:0] {bus_prefix}_awCACHE_o,
-    output wire [2:0] {bus_prefix}_awPROT_o,
-    output wire [3:0] {bus_prefix}_awQOS_o,
-    output wire {bus_prefix}_wVALID_o,
-    input  wire {bus_prefix}_wREADY_i,
-    output wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_o,
-    output wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_o,
-    output wire  {bus_prefix}_wLAST_o,
-    input  wire {bus_prefix}_bVALID_i,
-    output wire {bus_prefix}_bREADY_o,
+    output reg {bus_prefix}_awVALID_o,
+    input wire {bus_prefix}_awREADY_i,
+    output reg [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
+    output reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
+    output reg [7:0] {bus_prefix}_awLEN_o,
+    output reg [2:0] {bus_prefix}_awSIZE_o,
+    output reg [1:0] {bus_prefix}_awBURST_o,
+    output reg  {bus_prefix}_awLOCK_o,
+    output reg [3:0] {bus_prefix}_awCACHE_o,
+    output reg [2:0] {bus_prefix}_awPROT_o,
+    output reg [3:0] {bus_prefix}_awQOS_o,
+    output reg {bus_prefix}_wVALID_o,
+    input wire {bus_prefix}_wREADY_i,
+    output reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_o,
+    output reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_o,
+    output reg  {bus_prefix}_wLAST_o,
+    input wire {bus_prefix}_bVALID_i,
+    output reg {bus_prefix}_bREADY_o,
     input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bID_i,
     input  wire [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_bRESP_i,
-    output wire {bus_prefix}_arVALID_o,
-    input  wire {bus_prefix}_arREADY_i,
-    output wire [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
-    output wire [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
-    output wire [7:0] {bus_prefix}_arLEN_o,
-    output wire [2:0] {bus_prefix}_arSIZE_o,
-    output wire [1:0] {bus_prefix}_arBURST_o,
-    output wire  {bus_prefix}_arLOCK_o,
-    output wire [3:0] {bus_prefix}_arCACHE_o,
-    output wire [2:0] {bus_prefix}_arPROT_o,
-    output wire [3:0] {bus_prefix}_arQOS_o,
-    input  wire {bus_prefix}_rVALID_i,
-    output wire {bus_prefix}_rREADY_o,
+    output reg {bus_prefix}_arVALID_o,
+    input wire {bus_prefix}_arREADY_i,
+    output reg [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
+    output reg [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
+    output reg [7:0] {bus_prefix}_arLEN_o,
+    output reg [2:0] {bus_prefix}_arSIZE_o,
+    output reg [1:0] {bus_prefix}_arBURST_o,
+    output reg  {bus_prefix}_arLOCK_o,
+    output reg [3:0] {bus_prefix}_arCACHE_o,
+    output reg [2:0] {bus_prefix}_arPROT_o,
+    output reg [3:0] {bus_prefix}_arQOS_o,
+    input wire {bus_prefix}_rVALID_i,
+    output reg {bus_prefix}_rREADY_o,
     input  wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rID_i,
     input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rDATA_i,
     input  wire [1:0] {bus_prefix}_rRESP_i,
     input  wire {bus_prefix}_rLAST_i,
+"""
+
+def get_full_m_signals(bus_prefix):
+    return f"""  // Generated signals for AXI-Full Manager
+  localparam reg[2:0] ActiveByteLanes = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
+                                       ({bus_prefix}_DATA_WIDTH == 16) ? 3'b001:
+                                       ({bus_prefix}_DATA_WIDTH == 32) ? 3'b010:
+                                       ({bus_prefix}_DATA_WIDTH == 64) ? 3'b011:
+                                       ({bus_prefix}_DATA_WIDTH == 128) ? 3'b100:
+                                       ({bus_prefix}_DATA_WIDTH == 256) ? 3'b101:
+                                       ({bus_prefix}_DATA_WIDTH == 512) ? 3'b110: 3'b111;
+
+  // Read FSM (AR/R sequencing). Command inputs are driven by the control FSM.
+  reg [1:0] {bus_prefix}_r_state, {bus_prefix}_r_state_n;
+  reg [7:0] {bus_prefix}_r_beat_idx, {bus_prefix}_r_beat_idx_n;
+  reg {bus_prefix}_arVALID;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR;
+  reg [7:0] {bus_prefix}_arLEN;
+  reg {bus_prefix}_arVALID_n;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR_n;
+  reg [7:0] {bus_prefix}_arLEN_n;
+  reg {bus_prefix}_rREADY_n;
+  reg {bus_prefix}_r_error, {bus_prefix}_r_error_n;
+  wire {bus_prefix}_r_beat;
+  wire {bus_prefix}_r_done;
+  wire {bus_prefix}_r_idle;
+
+  // Write FSM (AW/W/B sequencing). Beat payload comes from the control FSM.
+  reg [1:0] {bus_prefix}_w_state, {bus_prefix}_w_state_n;
+  reg [7:0] {bus_prefix}_w_beat_idx, {bus_prefix}_w_beat_idx_n;
+  reg {bus_prefix}_awVALID;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR;
+  reg [7:0] {bus_prefix}_awLEN;
+  reg {bus_prefix}_awVALID_n;
+  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_n;
+  reg [7:0] {bus_prefix}_awLEN_n;
+  reg {bus_prefix}_wVALID;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA;
+  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB;
+  reg {bus_prefix}_wVALID_n;
+  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_n;
+  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_n;
+  reg {bus_prefix}_wLAST_n;
+  reg {bus_prefix}_bREADY_n;
+  reg {bus_prefix}_w_error, {bus_prefix}_w_error_n;
+  wire {bus_prefix}_w_beat;
+  wire {bus_prefix}_w_done;
+  wire {bus_prefix}_w_idle;
+"""
+
+def get_full_m_logic(bus_prefix, interface_name=None):
+    return f"""  // Generated logic for AXI-Full Manager
+  assign {bus_prefix}_r_beat = {bus_prefix}_rVALID_i & {bus_prefix}_rREADY_o;
+  assign {bus_prefix}_r_done = {bus_prefix}_r_beat & {bus_prefix}_rLAST_i;
+  assign {bus_prefix}_r_idle = ({bus_prefix}_r_state == 2'd0);
+
+  // Read FSM: sequences AR/R with registered channel outputs.
+  always @(*) begin
+    {bus_prefix}_r_state_n    = {bus_prefix}_r_state;
+    {bus_prefix}_r_beat_idx_n = {bus_prefix}_r_beat_idx;
+    {bus_prefix}_arVALID_n    = {bus_prefix}_arVALID_o;
+    {bus_prefix}_arADDR_n     = {bus_prefix}_arADDR_o;
+    {bus_prefix}_arLEN_n      = {bus_prefix}_arLEN_o;
+    {bus_prefix}_rREADY_n     = {bus_prefix}_rREADY_o;
+    {bus_prefix}_r_error_n    = 1'b0;
+
+    {bus_prefix}_arID_o    = {{{bus_prefix}_ID_R_WIDTH{{1'b0}}}};
+    {bus_prefix}_arSIZE_o  = ActiveByteLanes;
+    {bus_prefix}_arBURST_o = 2'b01;
+    {bus_prefix}_arLOCK_o  = 1'b0;
+    {bus_prefix}_arCACHE_o = 4'b0011;
+    {bus_prefix}_arPROT_o  = 3'b000;
+    {bus_prefix}_arQOS_o   = 4'b0000;
+
+    case ({bus_prefix}_r_state)
+      2'd0: begin  // RStIdle
+        if ({bus_prefix}_arVALID) begin
+          {bus_prefix}_arVALID_n    = 1'b1;
+          {bus_prefix}_arADDR_n     = {bus_prefix}_arADDR;
+          {bus_prefix}_arLEN_n      = {bus_prefix}_arLEN;
+          {bus_prefix}_r_beat_idx_n = 8'h00;
+          {bus_prefix}_r_state_n    = 2'd1;
+        end
+      end
+      2'd1: begin  // RStAr
+        if ({bus_prefix}_arREADY_i) begin
+          {bus_prefix}_arVALID_n    = 1'b0;
+          {bus_prefix}_rREADY_n     = 1'b1;
+          {bus_prefix}_r_beat_idx_n = 8'h00;
+          {bus_prefix}_r_state_n    = 2'd2;
+        end
+      end
+      2'd2: begin  // RStData
+        if ({bus_prefix}_r_beat) begin
+          if ({bus_prefix}_rRESP_i != 2'b00) {bus_prefix}_r_error_n = 1'b1;
+          if ({bus_prefix}_r_done) begin
+            {bus_prefix}_rREADY_n  = 1'b0;
+            {bus_prefix}_r_state_n = 2'd0;
+          end else begin
+            {bus_prefix}_r_beat_idx_n = {bus_prefix}_r_beat_idx + 8'h01;
+          end
+        end
+      end
+      default: {bus_prefix}_r_state_n = 2'd0;
+    endcase
+  end
+
+  `include "reg_{bus_prefix}_r_registers.vs"  /*
+    {bus_prefix}_r_state, 2, 0, sync_reset, , _n
+    {bus_prefix}_r_beat_idx, 8, 0, sync_reset, , _n
+    {bus_prefix}_arVALID_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_arADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
+    {bus_prefix}_arLEN_o, 8, 0, sync_reset, , _n
+    {bus_prefix}_rREADY_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_r_error, 1, 0, sync_reset, , _n
+    */
+
+  assign {bus_prefix}_w_beat = {bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i & ~{bus_prefix}_wLAST_o;
+  assign {bus_prefix}_w_done = ({bus_prefix}_w_state == 2'd3) & {bus_prefix}_bVALID_i & {bus_prefix}_bREADY_o;
+  assign {bus_prefix}_w_idle = ({bus_prefix}_w_state == 2'd0);
+
+  // Write FSM: sequences AW/W/B with registered channel outputs.
+  always @(*) begin
+    {bus_prefix}_w_state_n    = {bus_prefix}_w_state;
+    {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx;
+    {bus_prefix}_awVALID_n    = {bus_prefix}_awVALID_o;
+    {bus_prefix}_awADDR_n     = {bus_prefix}_awADDR_o;
+    {bus_prefix}_awLEN_n      = {bus_prefix}_awLEN_o;
+    {bus_prefix}_wVALID_n     = {bus_prefix}_wVALID_o;
+    {bus_prefix}_wDATA_n      = {bus_prefix}_wDATA_o;
+    {bus_prefix}_wSTRB_n      = {{{bus_prefix}_DATA_WIDTH/8{{1'b0}}}};
+    {bus_prefix}_wLAST_n      = {bus_prefix}_wLAST_o;
+    {bus_prefix}_bREADY_n     = {bus_prefix}_bREADY_o;
+    {bus_prefix}_w_error_n    = 1'b0;
+
+    {bus_prefix}_awID_o    = {{{bus_prefix}_ID_W_WIDTH{{1'b0}}}};
+    {bus_prefix}_awSIZE_o  = ActiveByteLanes;
+    {bus_prefix}_awBURST_o = 2'b01;
+    {bus_prefix}_awLOCK_o  = 1'b0;
+    {bus_prefix}_awCACHE_o = 4'b0011;
+    {bus_prefix}_awPROT_o  = 3'b000;
+    {bus_prefix}_awQOS_o   = 4'b0000;
+
+    case ({bus_prefix}_w_state)
+      2'd0: begin  // WStIdle
+        if ({bus_prefix}_awVALID) begin
+          {bus_prefix}_awVALID_n    = 1'b1;
+          {bus_prefix}_awADDR_n     = {bus_prefix}_awADDR;
+          {bus_prefix}_awLEN_n      = {bus_prefix}_awLEN;
+          {bus_prefix}_w_beat_idx_n = 8'h00;
+          {bus_prefix}_w_state_n    = 2'd1;
+        end
+      end
+      2'd1: begin  // WStAw
+        if ({bus_prefix}_awREADY_i) begin
+          {bus_prefix}_awVALID_n = 1'b0;
+          {bus_prefix}_wVALID_n  = {bus_prefix}_wVALID;
+          {bus_prefix}_wDATA_n   = {bus_prefix}_wDATA;
+          {bus_prefix}_wSTRB_n   = {bus_prefix}_wSTRB;
+          {bus_prefix}_wLAST_n   = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o);
+          {bus_prefix}_w_state_n = 2'd2;
+        end
+      end
+      2'd2: begin  // WStData
+        if ({bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i) begin
+          if ({bus_prefix}_wLAST_o) begin
+            {bus_prefix}_wVALID_n  = 1'b0;
+            {bus_prefix}_wLAST_n   = 1'b0;
+            {bus_prefix}_bREADY_n  = 1'b1;
+            {bus_prefix}_w_state_n = 2'd3;
+          end else begin
+            {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx + 8'h01;
+            {bus_prefix}_wVALID_n     = {bus_prefix}_wVALID;
+            {bus_prefix}_wDATA_n      = {bus_prefix}_wDATA;
+            {bus_prefix}_wSTRB_n      = {bus_prefix}_wSTRB;
+            {bus_prefix}_wLAST_n      = (({bus_prefix}_w_beat_idx + 8'h01) == {bus_prefix}_awLEN_o);
+          end
+        end
+      end
+      2'd3: begin  // WStResp
+        if ({bus_prefix}_bVALID_i) begin
+          if ({bus_prefix}_bRESP_i != 2'b00) {bus_prefix}_w_error_n = 1'b1;
+          {bus_prefix}_bREADY_n  = 1'b0;
+          {bus_prefix}_w_state_n = 2'd0;
+        end
+      end
+      default: {bus_prefix}_w_state_n = 2'd0;
+    endcase
+  end
+
+  `include "reg_{bus_prefix}_w_registers.vs"  /*
+    {bus_prefix}_w_state, 2, 0, sync_reset, , _n
+    {bus_prefix}_w_beat_idx, 8, 0, sync_reset, , _n
+    {bus_prefix}_awVALID_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_awADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
+    {bus_prefix}_awLEN_o, 8, 0, sync_reset, , _n
+    {bus_prefix}_wVALID_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_wDATA_o, {bus_prefix}_DATA_WIDTH, 0, sync_reset, , _n
+    {bus_prefix}_wSTRB_o, {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
+    {bus_prefix}_wLAST_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_bREADY_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_w_error, 1, 0, sync_reset, , _n
+    */
 """
 
 def write_vs(string, file_name):
