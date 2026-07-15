@@ -98,66 +98,66 @@ def get_lite_s_parameters(bus_prefix):
 
 def get_lite_s_ios(bus_prefix):
     return f"""    // Generated IOs for AXI-Lite Subordinate
-    input wire {bus_prefix}_awvalid_i,
-    output reg {bus_prefix}_awready_o,
-    input wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
-    input wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
-    input wire {bus_prefix}_wvalid_i,
-    output reg {bus_prefix}_wready_o,
-    input wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
-    input wire [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
-    output reg {bus_prefix}_bvalid_o,
-    input wire {bus_prefix}_bready_i,
-    output reg [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_o,
-    input wire {bus_prefix}_arvalid_i,
-    output reg {bus_prefix}_arready_o,
-    input wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arid_i,
-    input wire [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
-    output reg {bus_prefix}_rvalid_o,
-    input wire {bus_prefix}_rready_i,
-    output reg [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
-    output reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
+    input  logic {bus_prefix}_awvalid_i,
+    output logic {bus_prefix}_awready_o,
+    input  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awid_i,
+    input  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_i,
+    input  logic {bus_prefix}_wvalid_i,
+    output logic {bus_prefix}_wready_o,
+    input  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_i,
+    input  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_i,
+    output logic {bus_prefix}_bvalid_o,
+    input  logic {bus_prefix}_bready_i,
+    output logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_o,
+    input  logic {bus_prefix}_arvalid_i,
+    output logic {bus_prefix}_arready_o,
+    input  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arid_i,
+    input  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_i,
+    output logic {bus_prefix}_rvalid_o,
+    input  logic {bus_prefix}_rready_i,
+    output logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_o,
+    output logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_o,
 """
 
 def get_lite_s_signals(bus_prefix):
     return f"""  // Generated signals for AXI-Lite Subordinate
-  reg  [1:0] {bus_prefix}_w_state;
-  reg  [1:0] {bus_prefix}_w_state_n;
-  reg  {bus_prefix}_awready_n;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb; // "sb" is an abbreviation for skid buffer
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb_n;
-  reg  {bus_prefix}_wready_n;
-  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata;
-  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb;
-  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb_n;
-  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb;
-  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb;
-  reg  [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb_n;
-  reg  {bus_prefix}_bvalid_n;
-  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_n;
-  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb;
-  reg  [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb_n;
-  reg  {bus_prefix}_r_state;
-  reg  {bus_prefix}_r_state_n;
-  reg  {bus_prefix}_arready_n;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb;
-  reg  [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb_n;
-  reg  {bus_prefix}_rvalid_n;
-  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
-  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb;
-  reg  [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb_n;
-  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata;
-  reg  [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
+  logic [1:0] {bus_prefix}_w_state;
+  logic [1:0] {bus_prefix}_w_state_n;
+  logic {bus_prefix}_awready_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_q;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb; // "sb" is an abbreviation for skid buffer
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awaddr_sb_n;
+  logic {bus_prefix}_wready_n;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wdata_sb_n;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wstrb_sb_n;
+  logic {bus_prefix}_bvalid_n;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_n;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bid_sb_n;
+  logic {bus_prefix}_r_state;
+  logic {bus_prefix}_r_state_n;
+  logic {bus_prefix}_arready_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_q;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_araddr_sb_n;
+  logic {bus_prefix}_rvalid_n;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_n;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rid_sb_n;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rdata_n;
 """
 
 def get_lite_s_logic(bus_prefix, interface_name=None):
     return f"""  // Generated logic for AXI-Lite Subordinate
   // Write state machine
-  always @(*) begin
+  always_comb begin
     // 1. DEFAULT ASSIGNMENTS
     {bus_prefix}_w_state_n   = {bus_prefix}_w_state;
     {bus_prefix}_awready_n   = {bus_prefix}_awready_o;
@@ -270,7 +270,7 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
   end
 
   // Read state machine
-  always @(*) begin
+  always_comb begin
     // 1. DEFAULT ASSIGNMENTS
     {bus_prefix}_r_state_n   = {bus_prefix}_r_state;
     {bus_prefix}_arready_n   = {bus_prefix}_arready_o;
@@ -345,105 +345,105 @@ def get_full_m_parameters(bus_prefix):
     //parameter string {bus_prefix}_AXI_Transport = "Ready",
     parameter integer {bus_prefix}_ID_W_WIDTH = 1,
     parameter integer {bus_prefix}_ADDR_WIDTH = 32,
-    //parameter reg {bus_prefix}_LEN_Present = 1,
-    //parameter reg {bus_prefix}_SIZE_Present = 1,
-    //parameter reg {bus_prefix}_BURST_Present = 1,
-    //parameter reg {bus_prefix}_CACHE_Present = 1,
-    //parameter reg {bus_prefix}_PROT_Present = 1,
-    //parameter reg {bus_prefix}_QOS_Present = 1,
+    //parameter logic {bus_prefix}_LEN_Present = 1,
+    //parameter logic {bus_prefix}_SIZE_Present = 1,
+    //parameter logic {bus_prefix}_BURST_Present = 1,
+    //parameter logic {bus_prefix}_CACHE_Present = 1,
+    //parameter logic {bus_prefix}_PROT_Present = 1,
+    //parameter logic {bus_prefix}_QOS_Present = 1,
     parameter integer {bus_prefix}_DATA_WIDTH = 32,
-    //parameter reg {bus_prefix}_WSTRB_Present = 1,
+    //parameter logic {bus_prefix}_WSTRB_Present = 1,
     parameter integer {bus_prefix}_BRESP_WIDTH = 2,
     parameter integer {bus_prefix}_ID_R_WIDTH = 1,
 """
 
 def get_full_m_ios(bus_prefix):
     return f"""    // Generated IOs for AXI-Full Manager
-    output reg {bus_prefix}_awVALID_o,
-    input wire {bus_prefix}_awREADY_i,
-    output reg [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
-    output reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
-    output reg [7:0] {bus_prefix}_awLEN_o,
-    output reg [2:0] {bus_prefix}_awSIZE_o,
-    output reg [1:0] {bus_prefix}_awBURST_o,
-    output reg  {bus_prefix}_awLOCK_o,
-    output reg [3:0] {bus_prefix}_awCACHE_o,
-    output reg [2:0] {bus_prefix}_awPROT_o,
-    output reg [3:0] {bus_prefix}_awQOS_o,
-    output reg {bus_prefix}_wVALID_o,
-    input wire {bus_prefix}_wREADY_i,
-    output reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_o,
-    output reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_o,
-    output reg  {bus_prefix}_wLAST_o,
-    input wire {bus_prefix}_bVALID_i,
-    output reg {bus_prefix}_bREADY_o,
-    input  wire [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bID_i,
-    input  wire [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_bRESP_i,
-    output reg {bus_prefix}_arVALID_o,
-    input wire {bus_prefix}_arREADY_i,
-    output reg [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
-    output reg [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
-    output reg [7:0] {bus_prefix}_arLEN_o,
-    output reg [2:0] {bus_prefix}_arSIZE_o,
-    output reg [1:0] {bus_prefix}_arBURST_o,
-    output reg  {bus_prefix}_arLOCK_o,
-    output reg [3:0] {bus_prefix}_arCACHE_o,
-    output reg [2:0] {bus_prefix}_arPROT_o,
-    output reg [3:0] {bus_prefix}_arQOS_o,
-    input wire {bus_prefix}_rVALID_i,
-    output reg {bus_prefix}_rREADY_o,
-    input  wire [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rID_i,
-    input  wire [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rDATA_i,
-    input  wire [1:0] {bus_prefix}_rRESP_i,
-    input  wire {bus_prefix}_rLAST_i,
+    output logic {bus_prefix}_awVALID_o,
+    input  logic {bus_prefix}_awREADY_i,
+    output logic [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
+    output logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
+    output logic [7:0] {bus_prefix}_awLEN_o,
+    output logic [2:0] {bus_prefix}_awSIZE_o,
+    output logic [1:0] {bus_prefix}_awBURST_o,
+    output logic  {bus_prefix}_awLOCK_o,
+    output logic [3:0] {bus_prefix}_awCACHE_o,
+    output logic [2:0] {bus_prefix}_awPROT_o,
+    output logic [3:0] {bus_prefix}_awQOS_o,
+    output logic {bus_prefix}_wVALID_o,
+    input  logic {bus_prefix}_wREADY_i,
+    output logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_o,
+    output logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_o,
+    output logic  {bus_prefix}_wLAST_o,
+    input  logic {bus_prefix}_bVALID_i,
+    output logic {bus_prefix}_bREADY_o,
+    input  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bID_i,
+    input  logic [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_bRESP_i,
+    output logic {bus_prefix}_arVALID_o,
+    input  logic {bus_prefix}_arREADY_i,
+    output logic [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
+    output logic [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
+    output logic [7:0] {bus_prefix}_arLEN_o,
+    output logic [2:0] {bus_prefix}_arSIZE_o,
+    output logic [1:0] {bus_prefix}_arBURST_o,
+    output logic  {bus_prefix}_arLOCK_o,
+    output logic [3:0] {bus_prefix}_arCACHE_o,
+    output logic [2:0] {bus_prefix}_arPROT_o,
+    output logic [3:0] {bus_prefix}_arQOS_o,
+    input  logic {bus_prefix}_rVALID_i,
+    output logic {bus_prefix}_rREADY_o,
+    input  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_rID_i,
+    input  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_rDATA_i,
+    input  logic [1:0] {bus_prefix}_rRESP_i,
+    input  logic {bus_prefix}_rLAST_i,
 """
 
 def get_full_m_signals(bus_prefix):
     return f"""  // Generated signals for AXI-Full Manager
-  localparam reg[2:0] ActiveByteLanes = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
-                                       ({bus_prefix}_DATA_WIDTH == 16) ? 3'b001:
-                                       ({bus_prefix}_DATA_WIDTH == 32) ? 3'b010:
-                                       ({bus_prefix}_DATA_WIDTH == 64) ? 3'b011:
-                                       ({bus_prefix}_DATA_WIDTH == 128) ? 3'b100:
-                                       ({bus_prefix}_DATA_WIDTH == 256) ? 3'b101:
-                                       ({bus_prefix}_DATA_WIDTH == 512) ? 3'b110: 3'b111;
+  localparam logic[2:0] ActiveByteLanes = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
+                                          ({bus_prefix}_DATA_WIDTH == 16) ? 3'b001:
+                                          ({bus_prefix}_DATA_WIDTH == 32) ? 3'b010:
+                                          ({bus_prefix}_DATA_WIDTH == 64) ? 3'b011:
+                                          ({bus_prefix}_DATA_WIDTH == 128) ? 3'b100:
+                                          ({bus_prefix}_DATA_WIDTH == 256) ? 3'b101:
+                                          ({bus_prefix}_DATA_WIDTH == 512) ? 3'b110: 3'b111;
 
   // Read FSM (AR/R sequencing). Command inputs are driven by the control FSM.
-  reg [1:0] {bus_prefix}_r_state, {bus_prefix}_r_state_n;
-  reg [7:0] {bus_prefix}_r_beat_idx, {bus_prefix}_r_beat_idx_n;
-  reg {bus_prefix}_arVALID;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR;
-  reg [7:0] {bus_prefix}_arLEN;
-  reg {bus_prefix}_arVALID_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR_n;
-  reg [7:0] {bus_prefix}_arLEN_n;
-  reg {bus_prefix}_rREADY_n;
-  reg {bus_prefix}_r_error, {bus_prefix}_r_error_n;
-  wire {bus_prefix}_r_beat;
-  wire {bus_prefix}_r_done;
-  wire {bus_prefix}_r_idle;
+  logic [1:0] {bus_prefix}_r_state, {bus_prefix}_r_state_n;
+  logic [7:0] {bus_prefix}_r_beat_idx, {bus_prefix}_r_beat_idx_n;
+  logic {bus_prefix}_arVALID;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR;
+  logic [7:0] {bus_prefix}_arLEN;
+  logic {bus_prefix}_arVALID_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR_n;
+  logic [7:0] {bus_prefix}_arLEN_n;
+  logic {bus_prefix}_rREADY_n;
+  logic {bus_prefix}_r_error, {bus_prefix}_r_error_n;
+  logic {bus_prefix}_r_beat;
+  logic {bus_prefix}_r_done;
+  logic {bus_prefix}_r_idle;
 
   // Write FSM (AW/W/B sequencing). Beat payload comes from the control FSM.
-  reg [1:0] {bus_prefix}_w_state, {bus_prefix}_w_state_n;
-  reg [7:0] {bus_prefix}_w_beat_idx, {bus_prefix}_w_beat_idx_n;
-  reg {bus_prefix}_awVALID;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR;
-  reg [7:0] {bus_prefix}_awLEN;
-  reg {bus_prefix}_awVALID_n;
-  reg [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_n;
-  reg [7:0] {bus_prefix}_awLEN_n;
-  reg {bus_prefix}_wVALID;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB;
-  reg {bus_prefix}_wVALID_n;
-  reg [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_n;
-  reg [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_n;
-  reg {bus_prefix}_wLAST_n;
-  reg {bus_prefix}_bREADY_n;
-  reg {bus_prefix}_w_error, {bus_prefix}_w_error_n;
-  wire {bus_prefix}_w_beat;
-  wire {bus_prefix}_w_done;
-  wire {bus_prefix}_w_idle;
+  logic [1:0] {bus_prefix}_w_state, {bus_prefix}_w_state_n;
+  logic [7:0] {bus_prefix}_w_beat_idx, {bus_prefix}_w_beat_idx_n;
+  logic {bus_prefix}_awVALID;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR;
+  logic [7:0] {bus_prefix}_awLEN;
+  logic {bus_prefix}_awVALID_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_n;
+  logic [7:0] {bus_prefix}_awLEN_n;
+  logic {bus_prefix}_wVALID;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB;
+  logic {bus_prefix}_wVALID_n;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_n;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_n;
+  logic {bus_prefix}_wLAST_n;
+  logic {bus_prefix}_bREADY_n;
+  logic {bus_prefix}_w_error, {bus_prefix}_w_error_n;
+  logic {bus_prefix}_w_beat;
+  logic {bus_prefix}_w_done;
+  logic {bus_prefix}_w_idle;
 """
 
 def get_full_m_logic(bus_prefix, interface_name=None):
@@ -453,7 +453,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
   assign {bus_prefix}_r_idle = ({bus_prefix}_r_state == 2'd0);
 
   // Read FSM: sequences AR/R with registered channel outputs.
-  always @(*) begin
+  always_comb begin
     {bus_prefix}_r_state_n    = {bus_prefix}_r_state;
     {bus_prefix}_r_beat_idx_n = {bus_prefix}_r_beat_idx;
     {bus_prefix}_arVALID_n    = {bus_prefix}_arVALID_o;
@@ -518,7 +518,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
   assign {bus_prefix}_w_idle = ({bus_prefix}_w_state == 2'd0);
 
   // Write FSM: sequences AW/W/B with registered channel outputs.
-  always @(*) begin
+  always_comb begin
     {bus_prefix}_w_state_n    = {bus_prefix}_w_state;
     {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx;
     {bus_prefix}_awVALID_n    = {bus_prefix}_awVALID_o;

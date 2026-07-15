@@ -190,7 +190,7 @@ def sel_registers_desc(mm_reg_list):
 
 def write_registers_desc(mm_reg_list):
     w_desc = "  // Write memory mapped register always block\n"
-    w_desc += "  always @(*) begin\n"
+    w_desc += "  always_comb begin\n"
     for mm_reg in mm_reg_list:
         w_desc += f"    {mm_reg.reg.next} = {mm_reg.default_value};\n"
     w_desc += f"    if (w_enable) begin\n"
@@ -206,7 +206,7 @@ def write_registers_desc(mm_reg_list):
 
 def read_registers_desc(mm_reg_list):
     r_desc = "  // Read memory mapped register always block\n"
-    r_desc += "  always @(*) begin\n"
+    r_desc += "  always_comb begin\n"
     r_desc += "    r_data = 0;\n"
     r_desc += f"    if (r_enable) begin\n"
     for mm_reg in mm_reg_list:
@@ -227,19 +227,19 @@ def read_registers_desc(mm_reg_list):
 
 def generate_MMIO_signals(mm_reg_list):
     signal_content = "  // Additional signals for memory mapped registers\n"
-    signal_content += "  reg [DATA_WIDTH-1:0] r_data;\n"
-    signal_content += "  wire [DATA_WIDTH-1:0] w_data;\n"
-    signal_content += "  wire [ADDR_WIDTH-1:0] r_address;\n"
-    signal_content += "  wire [ADDR_WIDTH-1:0] w_address;\n"
-    signal_content += "  wire r_enable;\n"
-    signal_content += "  wire w_enable;\n"
+    signal_content += "  logic [DATA_WIDTH-1:0] r_data;\n"
+    signal_content += "  logic [DATA_WIDTH-1:0] w_data;\n"
+    signal_content += "  logic [ADDR_WIDTH-1:0] r_address;\n"
+    signal_content += "  logic [ADDR_WIDTH-1:0] w_address;\n"
+    signal_content += "  logic r_enable;\n"
+    signal_content += "  logic w_enable;\n"
     for mm_reg in mm_reg_list:
         if "W" in mm_reg.access_type:
-            signal_content += f"  wire {mm_reg.w_sel};\n"
+            signal_content += f"  logic {mm_reg.w_sel};\n"
         if "R" in mm_reg.access_type:
-            signal_content += f"  wire {mm_reg.r_sel};\n"
-        signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.signal};\n"
-        signal_content += f"  reg [{mm_reg.reg.size}-1:0] {mm_reg.reg.next};\n"
+            signal_content += f"  logic {mm_reg.r_sel};\n"
+        signal_content += f"  logic [{mm_reg.reg.size}-1:0] {mm_reg.reg.signal};\n"
+        signal_content += f"  logic [{mm_reg.reg.size}-1:0] {mm_reg.reg.next};\n"
     signal_content += "\n"
     generated_signals_file = f"MMIO_{vs_name_suffix}_signals.vs"
     with open(generated_signals_file, "a") as file:
