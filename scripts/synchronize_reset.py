@@ -61,7 +61,7 @@ def verilog_string(prefix, arst, arst_type, sync_reset, sync_reset_type, clock):
     end
   end\n
   assign {sync_reset} = {reg2};
-    """
+"""
     return code
 
 def parse_arguments():
