@@ -56,15 +56,15 @@ def addr_width(depth):
 def memory_signals(mem):
     addr_msb = addr_width(mem.depth)
     verilog_code = f"""  // Automatically generated signals for {mem.name} {mem.type} memory
-  reg [{mem.width}-1:0] {mem.name} [{mem.depth}];
+  logic [{mem.width}-1:0] {mem.name} [{mem.depth}];
 """
     if mem.type == "RAM":
-        verilog_code += f"  wire [{addr_msb}:0] {mem.name}_write_addr;\n"
-    verilog_code += f"  wire [{addr_msb}:0] {mem.name}_read_addr;\n"
-    verilog_code += f"  wire [{mem.width}-1:0] {mem.name}_data_out;\n"
+        verilog_code += f"  logic [{addr_msb}:0] {mem.name}_w_addr;\n"
+    verilog_code += f"  logic [{addr_msb}:0] {mem.name}_r_addr;\n"
+    verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_out;\n"
     if mem.type == "RAM":
-        verilog_code += f"  wire [{mem.width}-1:0] {mem.name}_data_in;\n"
-        verilog_code += f"  wire [{mem.width}/8-1:0] {mem.name}_write_en;\n"
+        verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_in;\n"
+        verilog_code += f"  logic [{mem.width}/8-1:0] {mem.name}_w_en;\n"
 
     with open(f"Mem_{vs_name_suffix}_signals.vs", "w") as file:
         file.write(verilog_code)
@@ -78,7 +78,7 @@ def memory_logic(mem):
         verilog_code += f'    $readmemh("{mem.init_file}", {mem.name});\n'
         verilog_code += f"  end\n\n"
         verilog_code += (
-            f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_read_addr];\n\n"
+            f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_r_addr];\n\n"
         )
     elif mem.type == "RAM":
         if mem.init_file != "":
@@ -89,14 +89,14 @@ def memory_logic(mem):
 """
         verilog_code += f"""
   integer {mem.name}_b;
-  always @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     for ({mem.name}_b = 0; {mem.name}_b < {mem.width} / 8; {mem.name}_b = {mem.name}_b + 1) begin
-      if ({mem.name}_write_en[{mem.name}_b]) begin
-        {mem.name}[{mem.name}_write_addr][8*{mem.name}_b+:8] <= {mem.name}_data_in[8*{mem.name}_b+:8];
+      if ({mem.name}_w_en[{mem.name}_b]) begin
+        {mem.name}[{mem.name}_w_addr][8*{mem.name}_b+:8] <= {mem.name}_data_in[8*{mem.name}_b+:8];
       end
     end
   end
-  assign {mem.name}_data_out = {mem.name}[{mem.name}_read_addr];\n
+  assign {mem.name}_data_out = {mem.name}[{mem.name}_r_addr];\n
 """
     else:
         vs_print(ERROR, "Invalid memory type.")
