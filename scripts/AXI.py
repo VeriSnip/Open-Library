@@ -632,7 +632,7 @@ def parse_arguments():
         exit(1)
     
     vs_name_suffix = sys.argv[1]
-    for token in ("ios.vs", "logic.vs", "signals.vs"):
+    for token in ("ios", "logic", "signals"):
         vs_name_suffix = vs_name_suffix.replace(token, "")
     config_line = sys.argv[2].strip()
     configurations = config_line.replace(",", "").replace("//", "").replace("/*", "").replace("*/", "").strip()
