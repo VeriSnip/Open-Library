@@ -466,13 +466,13 @@ def get_full_m_logic(bus_prefix, interface_name=None):
     {bus_prefix}_rREADY_n     = {bus_prefix}_rREADY_o;
     {bus_prefix}_r_error_n    = {bus_prefix}_r_error;
 
-    {bus_prefix}_arID_o    = {{{bus_prefix}_ID_R_WIDTH{{1'b0}}}};
+    {bus_prefix}_arID_o    = '0;
     {bus_prefix}_arSIZE_o  = ActiveByteLanes;
     {bus_prefix}_arBURST_o = 2'b01;
-    {bus_prefix}_arLOCK_o  = 1'b0;
+    {bus_prefix}_arLOCK_o  = '0;
     {bus_prefix}_arCACHE_o = 4'b0011;
-    {bus_prefix}_arPROT_o  = 3'b000;
-    {bus_prefix}_arQOS_o   = 4'b0000;
+    {bus_prefix}_arPROT_o  = '0;
+    {bus_prefix}_arQOS_o   = '0;
 
     case ({bus_prefix}_r_state)
       {bus_prefix}_r_Idle: begin
@@ -491,7 +491,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
       end
       {bus_prefix}_r_ReadData: begin  // RStData
         if ({bus_prefix}_r_beat) begin
-          if ({bus_prefix}_rRESP_i != 2'b00) {bus_prefix}_r_error_n = 1'b1;
+          if (({bus_prefix}_rRESP_i != '0)|({bus_prefix}_rID_i != '0)) {bus_prefix}_r_error_n = 1'b1;
           if ({bus_prefix}_rLAST_i) begin
             {bus_prefix}_rREADY_n  = 1'b0;
             if ({bus_prefix}_usr_rTRANSFER) begin
@@ -590,7 +590,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
       end
       {bus_prefix}_w_WaitResp: begin
         if ({bus_prefix}_bVALID_i) begin
-          if ({bus_prefix}_bRESP_i != 2'b00) {bus_prefix}_w_error_n = 1'b1;
+          if (({bus_prefix}_bRESP_i != '0)|({bus_prefix}_bID_i != '0)) {bus_prefix}_w_error_n = 1'b1;
           {bus_prefix}_bREADY_n  = 1'b0;
           if ({bus_prefix}_usr_wTRANSFER) begin
             {bus_prefix}_awVALID_n    = 1'b1;

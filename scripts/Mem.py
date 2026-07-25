@@ -49,18 +49,14 @@ class Memory:
             exit(1)
 
 
-def addr_width(depth):
-    return f"(({depth}) <= 1 ? 0 : $clog2({depth})-1)"
-
-
 def memory_signals(mem):
-    addr_msb = addr_width(mem.depth)
     verilog_code = f"""  // Automatically generated signals for {mem.name} {mem.type} memory
+  localparam integer AddrMSB{mem.name} = (({mem.depth}==1) ? 0 : $clog2({mem.depth})-1);
   logic [{mem.width}-1:0] {mem.name} [{mem.depth}];
 """
     if mem.type == "RAM":
-        verilog_code += f"  logic [{addr_msb}:0] {mem.name}_w_addr;\n"
-    verilog_code += f"  logic [{addr_msb}:0] {mem.name}_r_addr;\n"
+        verilog_code += f"  logic [AddrMSB{mem.name}:0] {mem.name}_w_addr;\n"
+    verilog_code += f"  logic [AddrMSB{mem.name}:0] {mem.name}_r_addr;\n"
     verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_out;\n"
     if mem.type == "RAM":
         verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_in;\n"

@@ -222,7 +222,7 @@ def generate_signals(fsm):
 
     conds = fsm.conditional_transitions()
     if conds:
-        names = ", ".join(t.cond_signal for t in conds)
+        names = ",\n        ".join(t.cond_signal for t in conds)
         code += f"  logic {names};\n"
 
     write_vs(code, vs_signals_name)
