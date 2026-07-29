@@ -436,8 +436,7 @@ def get_full_m_signals(bus_prefix):
   logic {bus_prefix}_usr_wTRANSFER;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_usr_wADDR;
   logic [7:0] {bus_prefix}_usr_wLEN;
-  logic {bus_prefix}_usr_wVALID;
-  logic {bus_prefix}_usr_wREADY;
+  logic {bus_prefix}_usr_w_en;
   logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_usr_wDATA;
   logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_usr_wSTRB;
   logic {bus_prefix}_w_error, {bus_prefix}_w_error_n;
@@ -517,7 +516,6 @@ def get_full_m_logic(bus_prefix, interface_name=None):
 
   assign {bus_prefix}_w_beat = {bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i;
   assign {bus_prefix}_w_done = ({bus_prefix}_w_state == {bus_prefix}_w_WaitResp) & {bus_prefix}_bVALID_i & {bus_prefix}_bREADY_o;
-  assign {bus_prefix}_usr_wREADY = (~{bus_prefix}_wVALID_o) | ({bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i);
 
   `include "FSM_{bus_prefix}_w.vs"  /* reset = sync_reset, clock = clk_i
       Idle      -> WaitAW: {bus_prefix}_usr_wTRANSFER
@@ -561,19 +559,19 @@ def get_full_m_logic(bus_prefix, interface_name=None):
       {bus_prefix}_w_WaitAW: begin
         if ({bus_prefix}_awREADY_i) begin
           {bus_prefix}_awVALID_n = 1'b0;
-          {bus_prefix}_wVALID_n  = {bus_prefix}_usr_wVALID;
+          {bus_prefix}_wVALID_n  = {bus_prefix}_usr_w_en;
           {bus_prefix}_wDATA_n   = {bus_prefix}_usr_wDATA;
           {bus_prefix}_wSTRB_n   = {bus_prefix}_usr_wSTRB;
-          {bus_prefix}_wLAST_n   = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_wVALID;
+          {bus_prefix}_wLAST_n   = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
         end
       end
       {bus_prefix}_w_WriteData: begin
         if (~{bus_prefix}_wVALID_o) begin
-          {bus_prefix}_wVALID_n = {bus_prefix}_usr_wVALID;
+          {bus_prefix}_wVALID_n = {bus_prefix}_usr_w_en;
           {bus_prefix}_wDATA_n  = {bus_prefix}_usr_wDATA;
           {bus_prefix}_wSTRB_n  = {bus_prefix}_usr_wSTRB;
-          {bus_prefix}_wLAST_n  = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_wVALID;
-        end else if ({bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i) begin
+          {bus_prefix}_wLAST_n  = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
+        end else if ({bus_prefix}_w_beat) begin
           if ({bus_prefix}_wLAST_o) begin
             {bus_prefix}_wVALID_n  = 1'b0;
             {bus_prefix}_wSTRB_n   = {{{bus_prefix}_DATA_WIDTH/8{{1'b0}}}};
@@ -581,10 +579,10 @@ def get_full_m_logic(bus_prefix, interface_name=None):
             {bus_prefix}_bREADY_n  = 1'b1;
           end else begin
             {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx + 8'h01;
-            {bus_prefix}_wVALID_n     = {bus_prefix}_usr_wVALID;
+            {bus_prefix}_wVALID_n     = {bus_prefix}_usr_w_en;
             {bus_prefix}_wDATA_n      = {bus_prefix}_usr_wDATA;
             {bus_prefix}_wSTRB_n      = {bus_prefix}_usr_wSTRB;
-            {bus_prefix}_wLAST_n      = ({bus_prefix}_w_beat_idx_n == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_wVALID;
+            {bus_prefix}_wLAST_n      = ({bus_prefix}_w_beat_idx_n == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
           end
         end
       end
