@@ -109,6 +109,36 @@ def write_vs(string, file_name):
         file.write(string)
 
 
+def format_condition_assign(signal, condition, max_len=96):
+    """Wrap `assign` after binary gates if the line is longer than max_len."""
+    prefix, text = f"  assign {signal} = ", condition + ";"
+    if len(prefix) + len(text) <= max_len:
+        return prefix + text + "\n"
+    gate = re.compile(r"(&&|\|\||~[&|^]|\^~|[&|^])")
+    lines, pos, indent = [], 0, prefix
+    while pos < len(text):
+        chunk = text[pos : pos + max_len - len(indent)]
+        if pos + len(chunk) >= len(text):
+            lines.append(indent + text[pos:])
+            break
+        split = 0
+        for m in gate.finditer(chunk):
+            i = pos + m.start() - 1
+            while i >= 0 and text[i] in " \t":
+                i -= 1
+            if i >= 0 and (text[i].isalnum() or text[i] in ")_'"):
+                split = m.end()
+        if not split:
+            lines.append(indent + text[pos:])
+            break
+        lines.append(indent + chunk[:split].rstrip())
+        pos += split
+        while pos < len(text) and text[pos] in " \t":
+            pos += 1
+        indent = "      "
+    return "\n".join(lines) + "\n"
+
+
 def parse_header(line):
     """Parse 'asynchronous reset = ..., clock = ...' (or defaults)."""
     async_reset = True
@@ -232,7 +262,7 @@ def generate_logic(fsm):
     code = f"  // Automatically generated logic for {fsm.name} FSM\n"
 
     for t in fsm.conditional_transitions():
-        code += f"  assign {t.cond_signal} = {t.condition};\n"
+        code += format_condition_assign(t.cond_signal, t.condition)
 
     if fsm.conditional_transitions():
         code += "\n"
