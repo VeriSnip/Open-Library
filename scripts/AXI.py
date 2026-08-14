@@ -410,210 +410,424 @@ def get_full_m_signals(bus_prefix):
 
   // AXI Manager Read Handshake control logic
   logic {bus_prefix}_arVALID_n;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_arID_n;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_arADDR_n;
   logic [7:0] {bus_prefix}_arLEN_n;
+  logic [2:0] {bus_prefix}_arSIZE_n;
+  logic [1:0] {bus_prefix}_arBURST_n;
   logic {bus_prefix}_rREADY_n;
   `include "FSM_{bus_prefix}_r_signals.vs" // VS_NO_GENERATE
-  // Signals that interface with control units outside of the AXI.py script:
-  logic {bus_prefix}_usr_rTRANSFER;
-  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_usr_rADDR;
-  logic [7:0] {bus_prefix}_usr_rLEN;
-  logic {bus_prefix}_r_error, {bus_prefix}_r_error_n;
+  // Internal read helpers (not part of the user API)
   logic {bus_prefix}_r_beat;
-  logic {bus_prefix}_r_done;
+  logic {bus_prefix}_r_last_beat;
+  logic {bus_prefix}_r_cmd_done;
+  logic {bus_prefix}_r_split_continue;
+  logic {bus_prefix}_r_issue_ar;
+  // Remaining user read beats not yet issued on AR, and next segment address
+  logic [8:0] {bus_prefix}_r_rem_beats, {bus_prefix}_r_rem_beats_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_r_next_addr, {bus_prefix}_r_next_addr_n;
+  // Combinational 4KB / 256-beat segment sizing (read)
+  logic {bus_prefix}_r_addr_from_user;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_r_calc_addr;
+  logic [8:0] {bus_prefix}_r_calc_beats;
+  logic [2:0] {bus_prefix}_r_calc_size;
+  logic [1:0] {bus_prefix}_r_calc_burst;
+  logic [12:0] {bus_prefix}_r_bytes_to_boundary;
+  logic [12:0] {bus_prefix}_r_beats_fit;
+  logic [8:0] {bus_prefix}_r_page_cap;
+  logic [8:0] {bus_prefix}_r_seg_beats;
+  logic [7:0] {bus_prefix}_r_seg_len;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_r_seg_addr_next;
+  logic [8:0] {bus_prefix}_r_seg_rem_next;
+
+  // User read command port
+  logic {bus_prefix}_usr_cmd_rd_valid;
+  logic {bus_prefix}_usr_cmd_rd_ready;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_usr_cmd_rd_addr;
+  logic [7:0] {bus_prefix}_usr_cmd_rd_len;
+  logic [2:0] {bus_prefix}_usr_cmd_rd_size;
+  logic [1:0] {bus_prefix}_usr_cmd_rd_burst;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_usr_cmd_rd_id;
+
+  // User read data port (streaming)
+  logic {bus_prefix}_usr_rd_data_valid;
+  logic {bus_prefix}_usr_rd_data_ready;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_usr_rd_data;
+  logic [1:0] {bus_prefix}_usr_rd_resp;
+  logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_usr_rd_id;
+  logic {bus_prefix}_usr_rd_last;
 
   // AXI Manager Write Handshake control logic
   logic {bus_prefix}_awVALID_n;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awID_n;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_n;
   logic [7:0] {bus_prefix}_awLEN_n;
+  logic [2:0] {bus_prefix}_awSIZE_n;
+  logic [1:0] {bus_prefix}_awBURST_n;
   logic {bus_prefix}_wVALID_n;
   logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_wDATA_n;
   logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_wSTRB_n;
   logic {bus_prefix}_wLAST_n;
   logic {bus_prefix}_bREADY_n;
   `include "FSM_{bus_prefix}_w_signals.vs" // VS_NO_GENERATE
-  // Signals that interface with control units outside of the AXI.py script:
-  logic {bus_prefix}_usr_wTRANSFER;
-  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_usr_wADDR;
-  logic [7:0] {bus_prefix}_usr_wLEN;
-  logic {bus_prefix}_usr_w_en;
-  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_usr_wDATA;
-  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_usr_wSTRB;
-  logic {bus_prefix}_w_error, {bus_prefix}_w_error_n;
+  // Internal write helpers (not part of the user API)
   logic {bus_prefix}_w_beat;
-  logic [7:0] {bus_prefix}_w_beat_idx, {bus_prefix}_w_beat_idx_n;
-  logic {bus_prefix}_w_done;
+  logic {bus_prefix}_w_resp_handshake;
+  logic {bus_prefix}_w_cmd_done;
+  logic {bus_prefix}_w_split_continue;
+  logic {bus_prefix}_w_b_ready_int;
+  logic {bus_prefix}_w_issue_aw;
+  logic {bus_prefix}_w_load_w;
+  // Remaining user write beats not yet issued on AW, next segment address
+  logic [8:0] {bus_prefix}_w_rem_beats, {bus_prefix}_w_rem_beats_n;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_w_next_addr, {bus_prefix}_w_next_addr_n;
+  // Beats left in the current AXI write segment (for WLAST generation)
+  logic [8:0] {bus_prefix}_w_seg_left, {bus_prefix}_w_seg_left_n;
+  logic [8:0] {bus_prefix}_w_cur_seg_beats, {bus_prefix}_w_cur_seg_beats_n;
+  // Combinational 4KB / 256-beat segment sizing (write)
+  logic {bus_prefix}_w_addr_from_user;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_w_calc_addr;
+  logic [8:0] {bus_prefix}_w_calc_beats;
+  logic [2:0] {bus_prefix}_w_calc_size;
+  logic [1:0] {bus_prefix}_w_calc_burst;
+  logic [12:0] {bus_prefix}_w_bytes_to_boundary;
+  logic [12:0] {bus_prefix}_w_beats_fit;
+  logic [8:0] {bus_prefix}_w_page_cap;
+  logic [8:0] {bus_prefix}_w_seg_beats;
+  logic [7:0] {bus_prefix}_w_seg_len;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_w_seg_addr_next;
+  logic [8:0] {bus_prefix}_w_seg_rem_next;
+
+  // User write command port
+  logic {bus_prefix}_usr_cmd_wr_valid;
+  logic {bus_prefix}_usr_cmd_wr_ready;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_usr_cmd_wr_addr;
+  logic [7:0] {bus_prefix}_usr_cmd_wr_len;
+  logic [2:0] {bus_prefix}_usr_cmd_wr_size;
+  logic [1:0] {bus_prefix}_usr_cmd_wr_burst;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_usr_cmd_wr_id;
+
+  // User write data port (streaming)
+  logic {bus_prefix}_usr_wr_data_valid;
+  logic {bus_prefix}_usr_wr_data_ready;
+  logic [{bus_prefix}_DATA_WIDTH-1:0] {bus_prefix}_usr_wr_data;
+  logic [{bus_prefix}_DATA_WIDTH/8-1:0] {bus_prefix}_usr_wr_strb;
+
+  // User write response port
+  logic {bus_prefix}_usr_wr_resp_valid;
+  logic {bus_prefix}_usr_wr_resp_ready;
+  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_usr_wr_resp_id;
+  logic [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_usr_wr_resp;
 """
 
 def get_full_m_logic(bus_prefix, interface_name=None):
     return f"""  // Generated logic for AXI-Full Manager
+  // ---------------------------------------------------------------------------
+  // Read: 4KB / 256-beat INCR segment sizing (shifts + bit-select, no / or %)
+  // bytes_to_boundary = 4096 - addr[11:0]  (range 1..4096)
+  // beats_fit         = bytes_to_boundary >> AxSIZE
+  // seg_beats         = min(rem_beats, min(beats_fit, 256)) for INCR; else min(rem, 256)
+  // ---------------------------------------------------------------------------
+  assign {bus_prefix}_r_addr_from_user = {bus_prefix}_usr_cmd_rd_ready & {bus_prefix}_usr_cmd_rd_valid;
+  assign {bus_prefix}_r_calc_addr  = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_addr
+                                                                  : {bus_prefix}_r_next_addr;
+  assign {bus_prefix}_r_calc_beats = {bus_prefix}_r_addr_from_user
+      ? ({{1'b0, {bus_prefix}_usr_cmd_rd_len}} + 9'd1) : {bus_prefix}_r_rem_beats;
+  // We might be able to replace _arSIZE_o and _arBURST_o registers by just wires.
+  assign {bus_prefix}_r_calc_size  = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_size
+                                                                  : {bus_prefix}_arSIZE_o;
+  assign {bus_prefix}_r_calc_burst = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_burst
+                                                                  : {bus_prefix}_arBURST_o;
+  assign {bus_prefix}_r_bytes_to_boundary = 13'h1000 - {{1'b0, {bus_prefix}_r_calc_addr[11:0]}};
+  assign {bus_prefix}_r_beats_fit = {bus_prefix}_r_bytes_to_boundary >> {bus_prefix}_r_calc_size;
+  assign {bus_prefix}_r_page_cap = (|{bus_prefix}_r_beats_fit[12:8]) ? 9'd256
+                                                                   : {bus_prefix}_r_beats_fit[8:0];
+  assign {bus_prefix}_r_seg_beats =
+      ({bus_prefix}_r_calc_burst != 2'b01) ?  // non-INCR: no 4KB split, still cap at 256
+          ((|{bus_prefix}_r_calc_beats[8]) ? 9'd256 : {bus_prefix}_r_calc_beats) :
+          (({bus_prefix}_r_calc_beats < {bus_prefix}_r_page_cap) ? {bus_prefix}_r_calc_beats
+                                                                : {bus_prefix}_r_page_cap);
+  assign {bus_prefix}_r_seg_len = {bus_prefix}_r_seg_beats[7:0] - 8'd1;
+  assign {bus_prefix}_r_seg_addr_next =
+      {bus_prefix}_r_calc_addr +
+      ({{{{({bus_prefix}_ADDR_WIDTH-9){{1'b0}}}}, {bus_prefix}_r_seg_beats}} << {bus_prefix}_r_calc_size);
+  assign {bus_prefix}_r_seg_rem_next = {bus_prefix}_r_calc_beats - {bus_prefix}_r_seg_beats;
+
+  // ---------------------------------------------------------------------------
+  // Read user ports
+  // ---------------------------------------------------------------------------
   assign {bus_prefix}_r_beat = {bus_prefix}_rVALID_i & {bus_prefix}_rREADY_o;
-  assign {bus_prefix}_r_done = {bus_prefix}_r_beat & {bus_prefix}_rLAST_i;
+  assign {bus_prefix}_r_last_beat = {bus_prefix}_r_beat & {bus_prefix}_rLAST_i;
+  assign {bus_prefix}_r_cmd_done = {bus_prefix}_r_last_beat & ({bus_prefix}_r_rem_beats == '0);
+  assign {bus_prefix}_r_split_continue = {bus_prefix}_r_last_beat & ({bus_prefix}_r_rem_beats != '0);
+  assign {bus_prefix}_usr_cmd_rd_ready =
+      ({bus_prefix}_r_state == {bus_prefix}_r_Idle) |
+      (({bus_prefix}_r_state == {bus_prefix}_r_ReadData) & {bus_prefix}_r_cmd_done);
+  assign {bus_prefix}_usr_rd_data_valid =
+      ({bus_prefix}_r_state == {bus_prefix}_r_ReadData) & {bus_prefix}_rVALID_i;
+  assign {bus_prefix}_usr_rd_data = {bus_prefix}_rDATA_i;
+  assign {bus_prefix}_usr_rd_resp = {bus_prefix}_rRESP_i;
+  assign {bus_prefix}_usr_rd_id   = {bus_prefix}_rID_i;
+  // Only the final AXI segment of the user command asserts usr_rd_last
+  assign {bus_prefix}_usr_rd_last = {bus_prefix}_rLAST_i & ({bus_prefix}_r_rem_beats == '0);
 
   `include "FSM_{bus_prefix}_r.vs"  /* reset = sync_reset, clock = clk_i
-      Idle     -> WaitAR: {bus_prefix}_usr_rTRANSFER
+      Idle     -> WaitAR: {bus_prefix}_usr_cmd_rd_valid
       WaitAR   -> ReadData: {bus_prefix}_arREADY_i
-      ReadData -> WaitAR: {bus_prefix}_r_done & {bus_prefix}_usr_rTRANSFER
-               -> Idle: {bus_prefix}_r_done
+      ReadData -> WaitAR: {bus_prefix}_r_split_continue | ({bus_prefix}_r_cmd_done & {bus_prefix}_usr_cmd_rd_valid)
+               -> Idle: {bus_prefix}_r_cmd_done
       */
+
+  assign {bus_prefix}_arLOCK_o  = '0;
+  assign {bus_prefix}_arCACHE_o = 4'b0011;
+  assign {bus_prefix}_arPROT_o  = '0;
+  assign {bus_prefix}_arQOS_o   = '0;
 
   // Read FSM outputs: sequences AR/R with registered channel outputs.
   always_comb begin
-    {bus_prefix}_arVALID_n    = {bus_prefix}_arVALID_o;
-    {bus_prefix}_arADDR_n     = {bus_prefix}_arADDR_o;
-    {bus_prefix}_arLEN_n      = {bus_prefix}_arLEN_o;
-    {bus_prefix}_rREADY_n     = {bus_prefix}_rREADY_o;
-    {bus_prefix}_r_error_n    = {bus_prefix}_r_error;
-
-    {bus_prefix}_arID_o    = '0;
-    {bus_prefix}_arSIZE_o  = ActiveByteLanes;
-    {bus_prefix}_arBURST_o = 2'b01;
-    {bus_prefix}_arLOCK_o  = '0;
-    {bus_prefix}_arCACHE_o = 4'b0011;
-    {bus_prefix}_arPROT_o  = '0;
-    {bus_prefix}_arQOS_o   = '0;
+    {bus_prefix}_r_issue_ar = 1'b0;
+    {bus_prefix}_rREADY_n   = {bus_prefix}_rREADY_o;
 
     case ({bus_prefix}_r_state)
       {bus_prefix}_r_Idle: begin
-        if ({bus_prefix}_usr_rTRANSFER) begin
-          {bus_prefix}_arVALID_n    = 1'b1;
-          {bus_prefix}_arADDR_n     = {bus_prefix}_usr_rADDR;
-          {bus_prefix}_arLEN_n      = {bus_prefix}_usr_rLEN;
-          {bus_prefix}_r_error_n    = 1'b0;
-        end
+        if ({bus_prefix}_usr_cmd_rd_valid) {bus_prefix}_r_issue_ar = 1'b1;
       end
       {bus_prefix}_r_WaitAR: begin
-        if ({bus_prefix}_arREADY_i) begin
-          {bus_prefix}_arVALID_n    = 1'b0;
-          {bus_prefix}_rREADY_n     = 1'b1;
-        end
+        if ({bus_prefix}_arREADY_i) {bus_prefix}_rREADY_n = {bus_prefix}_usr_rd_data_ready;
       end
-      {bus_prefix}_r_ReadData: begin  // RStData
-        if ({bus_prefix}_r_beat) begin
-          if (({bus_prefix}_rRESP_i != '0)|({bus_prefix}_rID_i != '0)) {bus_prefix}_r_error_n = 1'b1;
-          if ({bus_prefix}_rLAST_i) begin
-            {bus_prefix}_rREADY_n  = 1'b0;
-            if ({bus_prefix}_usr_rTRANSFER) begin
-              {bus_prefix}_arVALID_n    = 1'b1;
-              {bus_prefix}_arADDR_n     = {bus_prefix}_usr_rADDR;
-              {bus_prefix}_arLEN_n      = {bus_prefix}_usr_rLEN;
-              {bus_prefix}_r_error_n    = 1'b0;
-            end
-          end
+      {bus_prefix}_r_ReadData: begin
+        {bus_prefix}_rREADY_n = {bus_prefix}_usr_rd_data_ready;
+        if ({bus_prefix}_r_split_continue) begin
+          {bus_prefix}_rREADY_n   = 1'b0;
+          {bus_prefix}_r_issue_ar = 1'b1;
+        end else if ({bus_prefix}_r_cmd_done) begin
+          {bus_prefix}_rREADY_n = 1'b0;
+          if ({bus_prefix}_usr_cmd_rd_valid) {bus_prefix}_r_issue_ar = 1'b1;
         end
       end
       default: ;
     endcase
+  end
+
+  // Load the next AR segment when the FSM pulses r_issue_ar.
+  always_comb begin
+    {bus_prefix}_arVALID_n     = {bus_prefix}_arVALID_o;
+    {bus_prefix}_arID_n        = {bus_prefix}_arID_o;
+    {bus_prefix}_arADDR_n      = {bus_prefix}_arADDR_o;
+    {bus_prefix}_arLEN_n       = {bus_prefix}_arLEN_o;
+    {bus_prefix}_arSIZE_n      = {bus_prefix}_arSIZE_o;
+    {bus_prefix}_arBURST_n     = {bus_prefix}_arBURST_o;
+    {bus_prefix}_r_rem_beats_n = {bus_prefix}_r_rem_beats;
+    {bus_prefix}_r_next_addr_n = {bus_prefix}_r_next_addr;
+
+    if ({bus_prefix}_r_issue_ar) begin
+      {bus_prefix}_arVALID_n     = 1'b1;
+      {bus_prefix}_arADDR_n      = {bus_prefix}_r_calc_addr;
+      {bus_prefix}_arLEN_n       = {bus_prefix}_r_seg_len;
+      {bus_prefix}_r_rem_beats_n = {bus_prefix}_r_seg_rem_next;
+      {bus_prefix}_r_next_addr_n = {bus_prefix}_r_seg_addr_next;
+      if ({bus_prefix}_r_addr_from_user) begin
+        {bus_prefix}_arID_n    = {bus_prefix}_usr_cmd_rd_id;
+        {bus_prefix}_arSIZE_n  = {bus_prefix}_usr_cmd_rd_size;
+        {bus_prefix}_arBURST_n = {bus_prefix}_usr_cmd_rd_burst;
+      end
+    end else if ({bus_prefix}_arVALID_o & {bus_prefix}_arREADY_i) begin
+      {bus_prefix}_arVALID_n = 1'b0;
+    end
   end
 
   `include "reg_{bus_prefix}_r_registers.vs"  /*
     {bus_prefix}_arVALID_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_arID_o, {bus_prefix}_ID_R_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_arADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_arLEN_o, 8, 0, sync_reset, , _n
+    {bus_prefix}_arSIZE_o, 3, ActiveByteLanes, sync_reset, , _n
+    {bus_prefix}_arBURST_o, 2, 2'b01, sync_reset, , _n
     {bus_prefix}_rREADY_o, 1, 0, sync_reset, , _n
-    {bus_prefix}_r_error, 1, 0, sync_reset, , _n
+    {bus_prefix}_r_rem_beats, 9, 0, sync_reset, , _n
+    {bus_prefix}_r_next_addr, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     */
 
+  // ---------------------------------------------------------------------------
+  // Write: 4KB / 256-beat INCR segment sizing (same method as read)
+  // ---------------------------------------------------------------------------
+  assign {bus_prefix}_w_addr_from_user = {bus_prefix}_usr_cmd_wr_ready & {bus_prefix}_usr_cmd_wr_valid;
+  assign {bus_prefix}_w_calc_addr  = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_addr
+                                                                  : {bus_prefix}_w_next_addr;
+  assign {bus_prefix}_w_calc_beats = {bus_prefix}_w_addr_from_user
+      ? ({{1'b0, {bus_prefix}_usr_cmd_wr_len}} + 9'd1)
+      : {bus_prefix}_w_rem_beats;
+  assign {bus_prefix}_w_calc_size  = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_size
+                                                                  : {bus_prefix}_awSIZE_o;
+  assign {bus_prefix}_w_calc_burst = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_burst
+                                                                  : {bus_prefix}_awBURST_o;
+  assign {bus_prefix}_w_bytes_to_boundary = 13'h1000 - {{1'b0, {bus_prefix}_w_calc_addr[11:0]}};
+  assign {bus_prefix}_w_beats_fit = {bus_prefix}_w_bytes_to_boundary >> {bus_prefix}_w_calc_size;
+  assign {bus_prefix}_w_page_cap = (|{bus_prefix}_w_beats_fit[12:8]) ? 9'd256
+                                                                   : {bus_prefix}_w_beats_fit[8:0];
+  assign {bus_prefix}_w_seg_beats =
+      ({bus_prefix}_w_calc_burst != 2'b01) ?
+          ((|{bus_prefix}_w_calc_beats[8]) ? 9'd256 : {bus_prefix}_w_calc_beats) :
+          (({bus_prefix}_w_calc_beats < {bus_prefix}_w_page_cap) ? {bus_prefix}_w_calc_beats
+                                                                : {bus_prefix}_w_page_cap);
+  assign {bus_prefix}_w_seg_len = {bus_prefix}_w_seg_beats[7:0] - 8'd1;
+  assign {bus_prefix}_w_seg_addr_next =
+      {bus_prefix}_w_calc_addr +
+      ({{{{({bus_prefix}_ADDR_WIDTH-9){{1'b0}}}}, {bus_prefix}_w_seg_beats}} << {bus_prefix}_w_calc_size);
+  assign {bus_prefix}_w_seg_rem_next = {bus_prefix}_w_calc_beats - {bus_prefix}_w_seg_beats;
+
+  // ---------------------------------------------------------------------------
+  // Write user ports
+  // ---------------------------------------------------------------------------
   assign {bus_prefix}_w_beat = {bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i;
-  assign {bus_prefix}_w_done = ({bus_prefix}_w_state == {bus_prefix}_w_WaitResp) & {bus_prefix}_bVALID_i & {bus_prefix}_bREADY_o;
+  // Intermediate split B responses are accepted internally; final B uses usr ready
+  assign {bus_prefix}_w_b_ready_int =
+      ({bus_prefix}_w_rem_beats != '0) | {bus_prefix}_usr_wr_resp_ready;
+  assign {bus_prefix}_w_resp_handshake =
+      ({bus_prefix}_w_state == {bus_prefix}_w_WaitResp) &
+      {bus_prefix}_bVALID_i & {bus_prefix}_w_b_ready_int;
+  assign {bus_prefix}_w_cmd_done = {bus_prefix}_w_resp_handshake & ({bus_prefix}_w_rem_beats == '0);
+  assign {bus_prefix}_w_split_continue =
+      {bus_prefix}_w_resp_handshake & ({bus_prefix}_w_rem_beats != '0);
+  assign {bus_prefix}_usr_cmd_wr_ready =
+      ({bus_prefix}_w_state == {bus_prefix}_w_Idle) | {bus_prefix}_w_cmd_done;
+  assign {bus_prefix}_usr_wr_data_ready =
+      (({bus_prefix}_w_state == {bus_prefix}_w_WaitAW) & {bus_prefix}_awREADY_i) |
+      (({bus_prefix}_w_state == {bus_prefix}_w_WriteData) &
+       (~{bus_prefix}_wVALID_o | ({bus_prefix}_w_beat & ~{bus_prefix}_wLAST_o)));
+  // Only the final segment's B is visible on the user response port
+  assign {bus_prefix}_usr_wr_resp_valid =
+      ({bus_prefix}_w_state == {bus_prefix}_w_WaitResp) & {bus_prefix}_bVALID_i &
+      ({bus_prefix}_w_rem_beats == '0);
+  assign {bus_prefix}_usr_wr_resp_id = {bus_prefix}_bID_i;
+  assign {bus_prefix}_usr_wr_resp    = {bus_prefix}_bRESP_i;
 
   `include "FSM_{bus_prefix}_w.vs"  /* reset = sync_reset, clock = clk_i
-      Idle      -> WaitAW: {bus_prefix}_usr_wTRANSFER
+      Idle      -> WaitAW: {bus_prefix}_usr_cmd_wr_valid
       WaitAW    -> WriteData: {bus_prefix}_awREADY_i
       WriteData -> WaitResp: {bus_prefix}_wVALID_o & {bus_prefix}_wREADY_i & {bus_prefix}_wLAST_o
-      WaitResp  -> WaitAW: {bus_prefix}_bVALID_i & {bus_prefix}_usr_wTRANSFER
-                -> Idle: {bus_prefix}_bVALID_i
+      WaitResp  -> WaitAW: {bus_prefix}_w_split_continue | ({bus_prefix}_w_cmd_done & {bus_prefix}_usr_cmd_wr_valid)
+                -> Idle: {bus_prefix}_w_cmd_done
       */
 
-  // Write FSM outputs: sequences AW/W/B with registered channel outputs.
-  always_comb begin
-    {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx;
-    {bus_prefix}_awVALID_n    = {bus_prefix}_awVALID_o;
-    {bus_prefix}_awADDR_n     = {bus_prefix}_awADDR_o;
-    {bus_prefix}_awLEN_n      = {bus_prefix}_awLEN_o;
-    {bus_prefix}_wVALID_n     = {bus_prefix}_wVALID_o;
-    {bus_prefix}_wDATA_n      = {bus_prefix}_wDATA_o;
-    {bus_prefix}_wSTRB_n      = {bus_prefix}_wSTRB_o;
-    {bus_prefix}_wLAST_n      = {bus_prefix}_wLAST_o;
-    {bus_prefix}_bREADY_n     = {bus_prefix}_bREADY_o;
-    {bus_prefix}_w_error_n    = {bus_prefix}_w_error;
+  assign {bus_prefix}_awLOCK_o  = 1'b0;
+  assign {bus_prefix}_awCACHE_o = 4'b0011;
+  assign {bus_prefix}_awPROT_o  = 3'b000;
+  assign {bus_prefix}_awQOS_o   = 4'b0000;
 
-    {bus_prefix}_awID_o    = {{{bus_prefix}_ID_W_WIDTH{{1'b0}}}};
-    {bus_prefix}_awSIZE_o  = ActiveByteLanes;
-    {bus_prefix}_awBURST_o = 2'b01;
-    {bus_prefix}_awLOCK_o  = 1'b0;
-    {bus_prefix}_awCACHE_o = 4'b0011;
-    {bus_prefix}_awPROT_o  = 3'b000;
-    {bus_prefix}_awQOS_o   = 4'b0000;
+  // Write FSM outputs: sequences AW/W/B with registered channel outputs.
+  // WLAST is generated from the current segment beat count (not usr_wr_last),
+  // so split segments assert WLAST at each 4KB/256-beat boundary.
+  always_comb begin
+    {bus_prefix}_w_issue_aw = 1'b0;
+    {bus_prefix}_w_load_w   = 1'b0;
+    {bus_prefix}_bREADY_n   = {bus_prefix}_bREADY_o;
 
     case ({bus_prefix}_w_state)
       {bus_prefix}_w_Idle: begin
-        if ({bus_prefix}_usr_wTRANSFER) begin
-          {bus_prefix}_awVALID_n    = 1'b1;
-          {bus_prefix}_awADDR_n     = {bus_prefix}_usr_wADDR;
-          {bus_prefix}_awLEN_n      = {bus_prefix}_usr_wLEN;
-          {bus_prefix}_w_beat_idx_n = 8'h00;
-          {bus_prefix}_w_error_n    = 1'b0;
-        end
+        if ({bus_prefix}_usr_cmd_wr_valid) {bus_prefix}_w_issue_aw = 1'b1;
       end
       {bus_prefix}_w_WaitAW: begin
-        if ({bus_prefix}_awREADY_i) begin
-          {bus_prefix}_awVALID_n = 1'b0;
-          {bus_prefix}_wVALID_n  = {bus_prefix}_usr_w_en;
-          {bus_prefix}_wDATA_n   = {bus_prefix}_usr_wDATA;
-          {bus_prefix}_wSTRB_n   = {bus_prefix}_usr_wSTRB;
-          {bus_prefix}_wLAST_n   = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
-        end
+        if ({bus_prefix}_awREADY_i & {bus_prefix}_usr_wr_data_valid)
+          {bus_prefix}_w_load_w = 1'b1;
       end
       {bus_prefix}_w_WriteData: begin
         if (~{bus_prefix}_wVALID_o) begin
-          {bus_prefix}_wVALID_n = {bus_prefix}_usr_w_en;
-          {bus_prefix}_wDATA_n  = {bus_prefix}_usr_wDATA;
-          {bus_prefix}_wSTRB_n  = {bus_prefix}_usr_wSTRB;
-          {bus_prefix}_wLAST_n  = ({bus_prefix}_w_beat_idx == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
+          if ({bus_prefix}_usr_wr_data_valid) {bus_prefix}_w_load_w = 1'b1;
         end else if ({bus_prefix}_w_beat) begin
-          if ({bus_prefix}_wLAST_o) begin
-            {bus_prefix}_wVALID_n  = 1'b0;
-            {bus_prefix}_wSTRB_n   = {{{bus_prefix}_DATA_WIDTH/8{{1'b0}}}};
-            {bus_prefix}_wLAST_n   = 1'b0;
-            {bus_prefix}_bREADY_n  = 1'b1;
-          end else begin
-            {bus_prefix}_w_beat_idx_n = {bus_prefix}_w_beat_idx + 8'h01;
-            {bus_prefix}_wVALID_n     = {bus_prefix}_usr_w_en;
-            {bus_prefix}_wDATA_n      = {bus_prefix}_usr_wDATA;
-            {bus_prefix}_wSTRB_n      = {bus_prefix}_usr_wSTRB;
-            {bus_prefix}_wLAST_n      = ({bus_prefix}_w_beat_idx_n == {bus_prefix}_awLEN_o) & {bus_prefix}_usr_w_en;
-          end
+          if ({bus_prefix}_wLAST_o) {bus_prefix}_bREADY_n = {bus_prefix}_w_b_ready_int;
+          else if ({bus_prefix}_usr_wr_data_valid) {bus_prefix}_w_load_w = 1'b1;
         end
       end
       {bus_prefix}_w_WaitResp: begin
-        if ({bus_prefix}_bVALID_i) begin
-          if (({bus_prefix}_bRESP_i != '0)|({bus_prefix}_bID_i != '0)) {bus_prefix}_w_error_n = 1'b1;
-          {bus_prefix}_bREADY_n  = 1'b0;
-          if ({bus_prefix}_usr_wTRANSFER) begin
-            {bus_prefix}_awVALID_n    = 1'b1;
-            {bus_prefix}_awADDR_n     = {bus_prefix}_usr_wADDR;
-            {bus_prefix}_awLEN_n      = {bus_prefix}_usr_wLEN;
-            {bus_prefix}_w_beat_idx_n = 8'h00;
-            {bus_prefix}_w_error_n    = 1'b0;
-          end
+        {bus_prefix}_bREADY_n = {bus_prefix}_w_b_ready_int;
+        if ({bus_prefix}_w_split_continue) begin
+          {bus_prefix}_bREADY_n   = 1'b0;
+          {bus_prefix}_w_issue_aw = 1'b1;
+        end else if ({bus_prefix}_w_cmd_done) begin
+          {bus_prefix}_bREADY_n = 1'b0;
+          if ({bus_prefix}_usr_cmd_wr_valid) {bus_prefix}_w_issue_aw = 1'b1;
         end
       end
       default: ;
     endcase
   end
 
+  // Load the next W beat when the FSM pulses w_load_w.
+  always_comb begin
+    {bus_prefix}_wVALID_n     = {bus_prefix}_wVALID_o;
+    {bus_prefix}_wDATA_n      = {bus_prefix}_wDATA_o;
+    {bus_prefix}_wSTRB_n      = {bus_prefix}_wSTRB_o;
+    {bus_prefix}_wLAST_n      = {bus_prefix}_wLAST_o;
+    {bus_prefix}_w_seg_left_n = {bus_prefix}_w_seg_left;
+
+    if ({bus_prefix}_w_load_w) begin
+      {bus_prefix}_wVALID_n = 1'b1;
+      {bus_prefix}_wDATA_n  = {bus_prefix}_usr_wr_data;
+      {bus_prefix}_wSTRB_n  = {bus_prefix}_usr_wr_strb;
+      if ({bus_prefix}_w_state == {bus_prefix}_w_WaitAW) begin
+        {bus_prefix}_wLAST_n      = ({bus_prefix}_w_cur_seg_beats == 9'd1);
+        {bus_prefix}_w_seg_left_n = {bus_prefix}_w_cur_seg_beats - 9'd1;
+      end else begin
+        {bus_prefix}_wLAST_n      = ({bus_prefix}_w_seg_left == 9'd1);
+        {bus_prefix}_w_seg_left_n = {bus_prefix}_w_seg_left - 9'd1;
+      end
+    end else if ({bus_prefix}_w_beat) begin
+      {bus_prefix}_wVALID_n = 1'b0;
+      if ({bus_prefix}_wLAST_o) begin
+        {bus_prefix}_wSTRB_n = {{{bus_prefix}_DATA_WIDTH/8{{1'b0}}}};
+        {bus_prefix}_wLAST_n = 1'b0;
+      end
+    end else if (({bus_prefix}_w_state == {bus_prefix}_w_WaitAW) & {bus_prefix}_awREADY_i) begin
+      {bus_prefix}_w_seg_left_n = {bus_prefix}_w_cur_seg_beats;
+    end
+  end
+
+  // Load the next AW segment when the FSM pulses w_issue_aw.
+  always_comb begin
+    {bus_prefix}_awVALID_n         = {bus_prefix}_awVALID_o;
+    {bus_prefix}_awID_n            = {bus_prefix}_awID_o;
+    {bus_prefix}_awADDR_n          = {bus_prefix}_awADDR_o;
+    {bus_prefix}_awLEN_n           = {bus_prefix}_awLEN_o;
+    {bus_prefix}_awSIZE_n          = {bus_prefix}_awSIZE_o;
+    {bus_prefix}_awBURST_n         = {bus_prefix}_awBURST_o;
+    {bus_prefix}_w_rem_beats_n     = {bus_prefix}_w_rem_beats;
+    {bus_prefix}_w_next_addr_n     = {bus_prefix}_w_next_addr;
+    {bus_prefix}_w_cur_seg_beats_n = {bus_prefix}_w_cur_seg_beats;
+
+    if ({bus_prefix}_w_issue_aw) begin
+      {bus_prefix}_awVALID_n         = 1'b1;
+      {bus_prefix}_awADDR_n          = {bus_prefix}_w_calc_addr;
+      {bus_prefix}_awLEN_n           = {bus_prefix}_w_seg_len;
+      {bus_prefix}_w_rem_beats_n     = {bus_prefix}_w_seg_rem_next;
+      {bus_prefix}_w_next_addr_n     = {bus_prefix}_w_seg_addr_next;
+      {bus_prefix}_w_cur_seg_beats_n = {bus_prefix}_w_seg_beats;
+      if ({bus_prefix}_w_addr_from_user) begin
+        {bus_prefix}_awID_n    = {bus_prefix}_usr_cmd_wr_id;
+        {bus_prefix}_awSIZE_n  = {bus_prefix}_usr_cmd_wr_size;
+        {bus_prefix}_awBURST_n = {bus_prefix}_usr_cmd_wr_burst;
+      end
+    end else if ({bus_prefix}_awVALID_o & {bus_prefix}_awREADY_i) begin
+      {bus_prefix}_awVALID_n = 1'b0;
+    end
+  end
+
   `include "reg_{bus_prefix}_w_registers.vs"  /*
-    {bus_prefix}_w_beat_idx, 8, 0, sync_reset, , _n
     {bus_prefix}_awVALID_o, 1, 0, sync_reset, , _n
+    {bus_prefix}_awID_o, {bus_prefix}_ID_W_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_awADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_awLEN_o, 8, 0, sync_reset, , _n
+    {bus_prefix}_awSIZE_o, 3, ActiveByteLanes, sync_reset, , _n
+    {bus_prefix}_awBURST_o, 2, 2'b01, sync_reset, , _n
     {bus_prefix}_wVALID_o, 1, 0, sync_reset, , _n
     {bus_prefix}_wDATA_o, {bus_prefix}_DATA_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_wSTRB_o, {bus_prefix}_DATA_WIDTH/8, 0, sync_reset, , _n
     {bus_prefix}_wLAST_o, 1, 0, sync_reset, , _n
     {bus_prefix}_bREADY_o, 1, 0, sync_reset, , _n
-    {bus_prefix}_w_error, 1, 0, sync_reset, , _n
+    {bus_prefix}_w_rem_beats, 9, 0, sync_reset, , _n
+    {bus_prefix}_w_next_addr, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
+    {bus_prefix}_w_seg_left, 9, 0, sync_reset, , _n
+    {bus_prefix}_w_cur_seg_beats, 9, 0, sync_reset, , _n
     */
 """
 
