@@ -2,14 +2,16 @@
 
 # FSM.py script creates a finite state machine.
 # To call this script in a Verilog file it should follow:
-#   `include "FSM_{FSM_name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>
+#   `include "FSM_{FSM_name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>
 #     Current_state -> Next_state: Condition
 #                   -> Next_state              // unconditional (else) transition
 #     ...
 #     */
 # Signals are written to FSM_{FSM_name}_signals.vs (include with VS_NO_GENERATE).
-# Defaults: asynchronous reset = arst_i, clock = clk_i. Encoding is Gray.
+# Defaults: asynchronous reset = arst_i, clock = clk_i. Encoding is Gray (one-hot also supported).
 # Condition wires are named {FSM_name}_{From}_{To} and driven by continuous assigns.
+# A combinational {FSM_name}_error signal is generated and set high whenever the
+# FSM lands in a state outside the defined encoding (caught by the case default).
 
 import re
 import sys
@@ -27,17 +29,27 @@ class Transition:
         self.src = src
         self.dst = dst
         self.condition = condition.strip() if condition and condition.strip() else None
+        self.suffix = None
 
     @property
     def cond_signal(self):
         if self.condition is None:
             return None
-        return f"{vs_name_suffix}_{self.src}_{self.dst}"
+        suffix = f"_{self.suffix}" if self.suffix is not None else ""
+        return f"{vs_name_suffix}_{self.src}_{self.dst}{suffix}"
 
 
 class FSM:
     def __init__(
-        self, name, states, transitions, reset, clock, async_reset, active_low
+        self,
+        name,
+        states,
+        transitions,
+        reset,
+        clock,
+        async_reset,
+        active_low,
+        encoding="gray",
     ):
         self.name = name
         self.states = states
@@ -46,10 +58,15 @@ class FSM:
         self.clock = clock
         self.async_reset = async_reset
         self.active_low = active_low
-        self.width = max(1, (len(states) - 1).bit_length())
+        self.encoding = encoding
+        if encoding == "onehot":
+            self.width = len(states)
+        else:
+            self.width = max(1, (len(states) - 1).bit_length())
         self.enum_t = f"{name.lower()}_state_t"
         self.state = f"{name}_state"
         self.state_n = f"{name}_state_n"
+        self.error = f"{name}_FSM_error"
         self.reset_state = f"{name}_{states[0]}"
 
     def transitions_from(self, state):
@@ -57,6 +74,16 @@ class FSM:
 
     def conditional_transitions(self):
         return [t for t in self.transitions if t.condition is not None]
+
+    def assign_suffixes(self):
+        groups = {}
+        for t in self.conditional_transitions():
+            groups.setdefault((t.src, t.dst), []).append(t)
+
+        for group in groups.values():
+            if len(group) > 1:
+                for i, t in enumerate(group):
+                    t.suffix = i
 
     def check_health(self):
         # 1. Unreachable states
@@ -100,7 +127,18 @@ def gray_code(n):
     return n ^ (n >> 1)
 
 
-def format_gray(index, width):
+def normalize_encoding(value):
+    key = value.strip().lower().replace("-", "").replace("_", "").replace(" ", "")
+    if key == "gray":
+        return "gray"
+    if key in ("onehot", "1hot", "1ofn"):
+        return "onehot"
+    return None
+
+
+def format_state_value(index, width, encoding):
+    if encoding == "onehot":
+        return f"{width}'b{1 << index:0{width}b}"
     return f"{width}'b{gray_code(index):0{width}b}"
 
 
@@ -140,18 +178,24 @@ def format_condition_assign(signal, condition, max_len=96):
 
 
 def parse_header(line):
-    """Parse 'asynchronous reset = ..., clock = ...' (or defaults)."""
+    """Parse 'asynchronous reset = ..., clock = ..., encoding = ...' (or defaults)."""
     async_reset = True
     active_low = False
     reset = "arst_i"
     clock = "clk_i"
+    encoding = "gray"
 
     if not line or "->" in line:
-        return reset, clock, async_reset, active_low, False
+        return reset, clock, async_reset, active_low, encoding, False
 
     lower = line.lower()
-    if "reset" not in lower and "clock" not in lower and "clk" not in lower:
-        return reset, clock, async_reset, active_low, False
+    if (
+        "reset" not in lower
+        and "clock" not in lower
+        and "clk" not in lower
+        and "encoding" not in lower
+    ):
+        return reset, clock, async_reset, active_low, encoding, False
 
     # Split on commas that separate key=value pairs (not inside parentheses).
     parts = re.split(r",(?![^(]*\))", line)
@@ -176,8 +220,17 @@ def parse_header(line):
             reset = value
         elif key in ("clock", "clk"):
             clock = value
+        elif key == "encoding":
+            normalized = normalize_encoding(value)
+            if normalized is None:
+                vs_print(
+                    ERROR,
+                    f"Unknown FSM encoding '{value}'. Expected 'gray' or 'one-hot'.",
+                )
+                exit(1)
+            encoding = normalized
 
-    return reset, clock, async_reset, active_low, True
+    return reset, clock, async_reset, active_low, encoding, True
 
 
 def parse_transition_line(line, current_state):
@@ -210,12 +263,10 @@ def parse_arguments():
     comment = sys.argv[2].replace("/*", "").replace("*/", "").strip()
     lines = [ln.strip() for ln in comment.split("\n") if ln.strip()]
 
-    reset, clock, async_reset, active_low = "arst_i", "clk_i", True, False
-    start = 0
-    if lines:
-        reset, clock, async_reset, active_low, is_header = parse_header(lines[0])
-        if is_header:
-            start = 1
+    reset, clock, async_reset, active_low, encoding, is_header = parse_header(
+        lines[0] if lines else ""
+    )
+    start = 1 if is_header else 0
 
     states = []
     transitions = []
@@ -236,7 +287,14 @@ def parse_arguments():
         exit(1)
 
     return FSM(
-        vs_name_suffix, states, transitions, reset, clock, async_reset, active_low
+        vs_name_suffix,
+        states,
+        transitions,
+        reset,
+        clock,
+        async_reset,
+        active_low,
+        encoding,
     )
 
 
@@ -244,8 +302,10 @@ def generate_signals(fsm):
     code = f"  // Automatically generated signals for {fsm.name} FSM\n"
     code += f"  typedef enum logic [{fsm.width - 1}:0] {{\n"
     enum_lines = []
-    for i, state in enumerate[Any](fsm.states):
-        enum_lines.append(f"    {fsm.name}_{state} = {format_gray(i, fsm.width)}")
+    for i, state in enumerate(fsm.states):
+        enum_lines.append(
+            f"    {fsm.name}_{state} = {format_state_value(i, fsm.width, fsm.encoding)}"
+        )
     code += ",\n".join(enum_lines) + "\n"
     code += f"  }} {fsm.enum_t};\n"
     code += f"  {fsm.enum_t} {fsm.state}, {fsm.state_n};\n"
@@ -254,6 +314,8 @@ def generate_signals(fsm):
     if conds:
         names = ",\n        ".join(t.cond_signal for t in conds)
         code += f"  logic {names};\n"
+
+    code += f"  logic {fsm.error};\n"
 
     write_vs(code, vs_signals_name)
 
@@ -269,6 +331,7 @@ def generate_logic(fsm):
 
     code += "  always_comb begin\n"
     code += f"    {fsm.state_n} = {fsm.state};\n"
+    code += f"    {fsm.error} = 1'b0;\n"
     code += f"    case ({fsm.state})\n"
 
     for state in fsm.states:
@@ -299,7 +362,9 @@ def generate_logic(fsm):
 
         code += "      end\n"
 
-    code += f"      default: {fsm.state_n} = {fsm.reset_state};\n"
+    code += "      default: begin\n"
+    code += f"        {fsm.error} = 1'b1;\n"
+    code += "      end\n"
     code += "    endcase\n"
     code += "  end\n\n"
 
@@ -324,11 +389,13 @@ def generate_logic(fsm):
 
 if __name__ == "__main__":
     fsm = parse_arguments()
+    fsm.assign_suffixes()
     fsm.check_health()
     generate_signals(fsm)
     generate_logic(fsm)
     rst_kind = "asynchronous" if fsm.async_reset else "synchronous"
     vs_print(
         OK,
-        f"Generated FSM {fsm.name} ({len(fsm.states)} states, {rst_kind} reset={fsm.reset}, clock={fsm.clock}).",
+        f"Generated FSM {fsm.name} ({len(fsm.states)} states, {fsm.encoding} encoding, "
+        f"{rst_kind} reset={fsm.reset}, clock={fsm.clock}).",
     )
