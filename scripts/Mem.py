@@ -102,16 +102,17 @@ def _byte_enable_write(mem):
 
 
 def memory_signals(mem):
+    address_width = f"{mem.name}AddrWidth"
     ram_attr = ""
     if mem.style == "URAM":
         ram_attr = '  (* ram_style = "ultra" *)\n'
     verilog_code = f"""  // Automatically generated signals for {mem.name} {_type_label(mem)} memory
-  localparam integer AddrMSB{mem.name} = (({mem.depth}==1) ? 0 : $clog2({mem.depth})-1);
+  localparam integer {address_width} = (({mem.depth}==1) ? 1 : $clog2({mem.depth}));
 {ram_attr}  logic [{mem.width}-1:0] {mem.name} [{mem.depth}];
 """
     if mem.kind == "RAM":
-        verilog_code += f"  logic [AddrMSB{mem.name}:0] {mem.name}_w_addr;\n"
-    verilog_code += f"  logic [AddrMSB{mem.name}:0] {mem.name}_r_addr;\n"
+        verilog_code += f"  logic [{address_width}-1:0] {mem.name}_w_addr;\n"
+    verilog_code += f"  logic [{address_width}-1:0] {mem.name}_r_addr;\n"
     verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_out;\n"
     if mem.kind == "RAM":
         verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_in;\n"
