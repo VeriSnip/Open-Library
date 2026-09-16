@@ -3,12 +3,20 @@
 # MMIO.py script creates memory mapped registers
 # To call this script in a Verilog file it should follow one of the following patterns:
 #   `include "MMIO_{module}.vs" /*
-#   Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
-#   Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
-#   Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Reg_next, Address, Access Type, Default Value
+#   Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
+#   Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
+#   Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
 #   ...
 #   */
-# Default values are: Size = 1 bit; Reset Value = 0; Reg_reset = None; Reg_enable = None; Reg_next = {Reg_name}_n; Access Type = "R/W"; Default Value = Reg_name.
+# Default values are: Size = 1 bit; Reset Value = 0; Reg_reset = None; Reg_enable = None; Access Type = "R/W"; Next Value = Reg_name.
+# The combinational next-state wire for each MMIO register is always {Reg_name}_next.
+# Reg_enable gates both the write select and the underlying register's own clock
+# enable; the read select is address-decoded only, so a register stays readable at
+# its last committed value even while its enable is deasserted.
+# A register with an explicit Next Value does NOT get the built-in w_sel/w_data
+# write mux, even if "W" is in Access Type: the Next Value expression is assumed to
+# own the register's next state entirely, so if it should still react to writes it
+# must reference {w_sel}/{w_data}/w_enable itself (w_sel alone is not w_enable-gated).
 
 import subprocess
 import sys
@@ -34,12 +42,12 @@ class memory_mapped_register:
                     properties[2],
                     properties[3],
                     properties[4],
-                    properties[5],
+                    "_next",
                 ]
             )
-            self.set_address(properties[6])
-            self.set_access_type(properties[7])
-            self.set_default_value(properties[8])
+            self.set_address(properties[5])
+            self.set_access_type(properties[6])
+            self.set_next_value(properties[7])
         except:
             vs_print(ERROR, f"MMIO register is malformed, expected 8 values.")
             exit()
@@ -58,11 +66,13 @@ class memory_mapped_register:
         else:
             self.access_type = mm_reg_access_type
 
-    def set_default_value(self, mm_reg_default_value):
-        if mm_reg_default_value == "":
-            self.default_value = self.reg.signal
+    def set_next_value(self, mm_reg_next_value):
+        if mm_reg_next_value == "":
+            self.next_value = self.reg.signal
+            self.custom_next_value = False
         else:
-            self.default_value = mm_reg_default_value
+            self.next_value = mm_reg_next_value
+            self.custom_next_value = True
 
     def set_sel(self):
         self.r_sel = f"r_{self.reg.name}_sel"
@@ -169,7 +179,7 @@ def print_mmio_info(mm_reg_list):
 def registers_description(mm_reg_list):
     reg_desc = f'  `include "reg_MMIO_{vs_name_suffix}.vs" /*\n'
     for mm_reg in mm_reg_list:
-        reg_desc += f"    {mm_reg.reg.signal}, {mm_reg.reg.size}, {mm_reg.reg.rst_val}, {mm_reg.reg.rst}, , {mm_reg.reg.next}\n"
+        reg_desc += f"    {mm_reg.reg.signal}, {mm_reg.reg.size}, {mm_reg.reg.rst_val}, {mm_reg.reg.rst}, {mm_reg.reg.en}, {mm_reg.reg.next}\n"
     reg_desc += "  */\n"
     return reg_desc
 
@@ -184,7 +194,7 @@ def sel_registers_desc(mm_reg_list):
         if "W" in mm_reg.access_type:
             sel_reg_desc += f"  assign {mm_reg.w_sel} = (w_address == {mm_reg.address}){f' & ({mm_reg.reg.en})' if mm_reg.reg.en != None else ''};\n"
         if "R" in mm_reg.access_type:
-            sel_reg_desc += f"  assign {mm_reg.r_sel} = (r_address == {mm_reg.address}){f' & ({mm_reg.reg.en})' if mm_reg.reg.en != None else ''};\n"
+            sel_reg_desc += f"  assign {mm_reg.r_sel} = (r_address == {mm_reg.address});\n"
     return sel_reg_desc
 
 
@@ -192,10 +202,10 @@ def write_registers_desc(mm_reg_list):
     w_desc = "  // Write memory mapped register always block\n"
     w_desc += "  always_comb begin\n"
     for mm_reg in mm_reg_list:
-        w_desc += f"    {mm_reg.reg.next} = {mm_reg.default_value};\n"
+        w_desc += f"    {mm_reg.reg.next} = {mm_reg.next_value};\n"
     w_desc += f"    if (w_enable) begin\n"
     for mm_reg in mm_reg_list:
-        if "W" in mm_reg.access_type:
+        if "W" in mm_reg.access_type and not mm_reg.custom_next_value:
             w_desc += f"      if ({mm_reg.w_sel}) begin\n"
             w_desc += f"        {mm_reg.reg.next} = w_data[{mm_reg.reg.size}-1:0];\n"
             w_desc += "      end\n"
