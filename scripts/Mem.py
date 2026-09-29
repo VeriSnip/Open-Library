@@ -3,8 +3,9 @@
 # mem.py script creates a memory
 # To call this script in a Verilog file it should follow one of the following patterns:
 #   `include "Mem_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
-# where Type can be: distributed RAM, BRAM, URAM, or ROM.
-# The Init_file is optional for distributed RAM and BRAM, required for ROM,
+# where Type can be: RAM, distributed RAM, BRAM, URAM, or ROM.
+# RAM leaves ram_style unconstrained so synthesis can choose LUTRAM or BRAM.
+# The Init_file is optional for RAM, distributed RAM, and BRAM, required for ROM,
 # and not allowed for URAM (UltraRAM cannot be initialized from a file).
 # Default values are: Type = None; Depth = None; Width = None; Init_file = None.
 
@@ -18,12 +19,13 @@ vs_name_suffix = sys.argv[1].removesuffix(".vs")
 # Maps the include-comment type to (kind, style).
 # kind is RAM or ROM; style selects the inference template.
 VALID_TYPES = {
+    "RAM": ("RAM", "AUTO"),
     "DISTRIBUTED RAM": ("RAM", "DISTRIBUTED"),
     "BRAM": ("RAM", "BRAM"),
     "URAM": ("RAM", "URAM"),
     "ROM": ("ROM", "DISTRIBUTED"),
 }
-VALID_TYPE_HELP = "distributed RAM, BRAM, URAM, or ROM"
+VALID_TYPE_HELP = "RAM, distributed RAM, BRAM, URAM, or ROM"
 
 
 class Memory:
@@ -49,12 +51,6 @@ class Memory:
         if self.type == "":
             vs_print(ERROR, f"You must provide the memory type: {VALID_TYPE_HELP}.")
             exit(1)
-        if self.type == "RAM":
-            vs_print(
-                ERROR,
-                "Invalid memory type: RAM. Use distributed RAM, BRAM, or URAM.",
-            )
-            exit(1)
         if self.type not in VALID_TYPES:
             vs_print(
                 ERROR,
@@ -77,10 +73,6 @@ class Memory:
                 "URAM cannot use an init file. UltraRAM is not initialized from a memory file.",
             )
             exit(1)
-
-
-def _type_label(mem):
-    return mem.type.replace("DISTRIBUTED RAM", "distributed RAM")
 
 
 def _init_block(mem):
@@ -106,7 +98,9 @@ def memory_signals(mem):
     ram_attr = ""
     if mem.style == "URAM":
         ram_attr = '  (* ram_style = "ultra" *)\n'
-    verilog_code = f"""  // Automatically generated signals for {mem.name} {_type_label(mem)} memory
+    elif mem.style == "BRAM":
+        ram_attr = '  (* ram_style = "block" *)\n'
+    verilog_code = f"""  // Automatically generated signals for {mem.name} {mem.type} memory
   localparam integer {address_width} = (({mem.depth}==1) ? 1 : $clog2({mem.depth}));
 {ram_attr}  logic [{mem.width}-1:0] {mem.name} [{mem.depth}];
 """
@@ -124,7 +118,7 @@ def memory_signals(mem):
 
 
 def memory_logic(mem):
-    verilog_code = f"  // Automatically generated logic for {mem.name} {_type_label(mem)} memory\n"
+    verilog_code = f"  // Automatically generated logic for {mem.name} {mem.type} memory\n"
     if mem.kind == "ROM":
         verilog_code += f"  initial begin\n"
         verilog_code += f'    $readmemh("{mem.init_file}", {mem.name});\n'
@@ -141,14 +135,11 @@ def memory_logic(mem):
   end
   assign {mem.name}_data_out = {mem.name}[{mem.name}_r_addr];\n
 """
-    elif mem.style in ("BRAM", "URAM"):
+    elif mem.style in ("AUTO", "BRAM", "URAM"):
         verilog_code += _init_block(mem)
-        ram_attr = ""
-        if mem.style == "URAM":
-            ram_attr = '  (* ram_style = "ultra" *)\n'
         verilog_code += f"""
   integer {mem.name}_b;
-{ram_attr}  always_ff @(posedge clk_i) begin
+  always_ff @(posedge clk_i) begin
     {mem.name}_data_out <= {mem.name}[{mem.name}_r_addr];
 {_byte_enable_write(mem)}
   end
