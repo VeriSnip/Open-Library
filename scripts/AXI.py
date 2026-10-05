@@ -398,7 +398,43 @@ def get_full_m_ios(bus_prefix):
     input  logic {bus_prefix}_rLAST_i,
 """
 
+def get_seg_sizing_signals(bus_prefix, stem):
+    return f"""  logic [8:0] {stem}_beats;
+  logic [12:0] {stem}_bytes_to_boundary;
+  logic [12:0] {stem}_beats_fit;
+  logic [8:0] {stem}_page_cap;
+  logic [8:0] {stem}_seg_beats;
+  logic [7:0] {stem}_seg_len;
+  logic [{bus_prefix}_ADDR_WIDTH-1:0] {stem}_seg_addr_next;
+  logic [8:0] {stem}_seg_rem_next;
+"""
+
+def get_len_beats(axlen):
+    return f"{{1'b0, {axlen}}} + 9'd1"
+
+def get_seg_sizing_logic(bus_prefix, stem, addr, beats, size, burst):
+    return f"""  assign {stem}_beats = {beats};
+  assign {stem}_bytes_to_boundary = 13'h1000 - {{1'b0, {addr}[11:0]}};
+  assign {stem}_beats_fit = {stem}_bytes_to_boundary >> {size};
+  assign {stem}_page_cap = (|{stem}_beats_fit[12:8]) ? 9'd256
+                                                   : {stem}_beats_fit[8:0];
+  assign {stem}_seg_beats =
+      ({burst} != 2'b01) ?
+          ((|{stem}_beats[8]) ? 9'd256 : {stem}_beats) :
+          (({stem}_beats < {stem}_page_cap) ? {stem}_beats
+                                            : {stem}_page_cap);
+  assign {stem}_seg_len = {stem}_seg_beats[7:0] - 8'd1;
+  assign {stem}_seg_addr_next =
+      {addr} +
+      ({{{{({bus_prefix}_ADDR_WIDTH-9){{1'b0}}}}, {stem}_seg_beats}} << {size});
+  assign {stem}_seg_rem_next = {stem}_beats - {stem}_seg_beats;
+"""
+
 def get_full_m_signals(bus_prefix):
+    r_usr_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_r_usr")
+    r_cont_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_r_cont")
+    w_usr_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_w_usr")
+    w_cont_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_w_cont")
     return f"""  // Generated signals for AXI-Full Manager
   localparam logic[2:0] ActiveByteLanes = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
                                           ({bus_prefix}_DATA_WIDTH == 16) ? 3'b001:
@@ -429,14 +465,7 @@ def get_full_m_signals(bus_prefix):
   // Combinational 4KB / 256-beat segment sizing (read)
   logic {bus_prefix}_r_addr_from_user;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_r_calc_addr;
-  logic [8:0] {bus_prefix}_r_calc_beats;
-  logic [2:0] {bus_prefix}_r_calc_size;
-  logic [1:0] {bus_prefix}_r_calc_burst;
-  logic [12:0] {bus_prefix}_r_bytes_to_boundary;
-  logic [12:0] {bus_prefix}_r_beats_fit;
-  logic [8:0] {bus_prefix}_r_page_cap;
-  logic [8:0] {bus_prefix}_r_seg_beats;
-  logic [7:0] {bus_prefix}_r_seg_len;
+{r_usr_sizing}{r_cont_sizing}  logic [7:0] {bus_prefix}_r_seg_len;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_r_seg_addr_next;
   logic [8:0] {bus_prefix}_r_seg_rem_next;
 
@@ -487,13 +516,7 @@ def get_full_m_signals(bus_prefix):
   // Combinational 4KB / 256-beat segment sizing (write)
   logic {bus_prefix}_w_addr_from_user;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_w_calc_addr;
-  logic [8:0] {bus_prefix}_w_calc_beats;
-  logic [2:0] {bus_prefix}_w_calc_size;
-  logic [1:0] {bus_prefix}_w_calc_burst;
-  logic [12:0] {bus_prefix}_w_bytes_to_boundary;
-  logic [12:0] {bus_prefix}_w_beats_fit;
-  logic [8:0] {bus_prefix}_w_page_cap;
-  logic [8:0] {bus_prefix}_w_seg_beats;
+{w_usr_sizing}{w_cont_sizing}  logic [8:0] {bus_prefix}_w_seg_beats;
   logic [7:0] {bus_prefix}_w_seg_len;
   logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_w_seg_addr_next;
   logic [8:0] {bus_prefix}_w_seg_rem_next;
@@ -521,6 +544,20 @@ def get_full_m_signals(bus_prefix):
 """
 
 def get_full_m_logic(bus_prefix, interface_name=None):
+    r_usr_sizing = get_seg_sizing_logic(
+        bus_prefix, f"{bus_prefix}_r_usr", f"{bus_prefix}_usr_cmd_rd_addr",
+        get_len_beats(f"{bus_prefix}_usr_cmd_rd_len"),
+        f"{bus_prefix}_usr_cmd_rd_size", f"{bus_prefix}_usr_cmd_rd_burst")
+    r_cont_sizing = get_seg_sizing_logic(
+        bus_prefix, f"{bus_prefix}_r_cont", f"{bus_prefix}_r_next_addr",
+        f"{bus_prefix}_r_rem_beats", f"{bus_prefix}_arSIZE_o", f"{bus_prefix}_arBURST_o")
+    w_usr_sizing = get_seg_sizing_logic(
+        bus_prefix, f"{bus_prefix}_w_usr", f"{bus_prefix}_usr_cmd_wr_addr",
+        get_len_beats(f"{bus_prefix}_usr_cmd_wr_len"),
+        f"{bus_prefix}_usr_cmd_wr_size", f"{bus_prefix}_usr_cmd_wr_burst")
+    w_cont_sizing = get_seg_sizing_logic(
+        bus_prefix, f"{bus_prefix}_w_cont", f"{bus_prefix}_w_next_addr",
+        f"{bus_prefix}_w_rem_beats", f"{bus_prefix}_awSIZE_o", f"{bus_prefix}_awBURST_o")
     return f"""  // Generated logic for AXI-Full Manager
   // ---------------------------------------------------------------------------
   // Read: 4KB / 256-beat INCR segment sizing (shifts + bit-select, no / or %)
@@ -529,29 +566,16 @@ def get_full_m_logic(bus_prefix, interface_name=None):
   // seg_beats         = min(rem_beats, min(beats_fit, 256)) for INCR; else min(rem, 256)
   // ---------------------------------------------------------------------------
   assign {bus_prefix}_r_addr_from_user = {bus_prefix}_usr_cmd_rd_ready & {bus_prefix}_usr_cmd_rd_valid;
-  assign {bus_prefix}_r_calc_addr  = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_addr
-                                                                  : {bus_prefix}_r_next_addr;
-  assign {bus_prefix}_r_calc_beats = {bus_prefix}_r_addr_from_user
-      ? ({{1'b0, {bus_prefix}_usr_cmd_rd_len}} + 9'd1) : {bus_prefix}_r_rem_beats;
+  // Both candidates are sized in parallel so the late addr_from_user only drives the output muxes.
   // We might be able to replace _arSIZE_o and _arBURST_o registers by just wires.
-  assign {bus_prefix}_r_calc_size  = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_size
-                                                                  : {bus_prefix}_arSIZE_o;
-  assign {bus_prefix}_r_calc_burst = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_burst
-                                                                  : {bus_prefix}_arBURST_o;
-  assign {bus_prefix}_r_bytes_to_boundary = 13'h1000 - {{1'b0, {bus_prefix}_r_calc_addr[11:0]}};
-  assign {bus_prefix}_r_beats_fit = {bus_prefix}_r_bytes_to_boundary >> {bus_prefix}_r_calc_size;
-  assign {bus_prefix}_r_page_cap = (|{bus_prefix}_r_beats_fit[12:8]) ? 9'd256
-                                                                   : {bus_prefix}_r_beats_fit[8:0];
-  assign {bus_prefix}_r_seg_beats =
-      ({bus_prefix}_r_calc_burst != 2'b01) ?  // non-INCR: no 4KB split, still cap at 256
-          ((|{bus_prefix}_r_calc_beats[8]) ? 9'd256 : {bus_prefix}_r_calc_beats) :
-          (({bus_prefix}_r_calc_beats < {bus_prefix}_r_page_cap) ? {bus_prefix}_r_calc_beats
-                                                                : {bus_prefix}_r_page_cap);
-  assign {bus_prefix}_r_seg_len = {bus_prefix}_r_seg_beats[7:0] - 8'd1;
-  assign {bus_prefix}_r_seg_addr_next =
-      {bus_prefix}_r_calc_addr +
-      ({{{{({bus_prefix}_ADDR_WIDTH-9){{1'b0}}}}, {bus_prefix}_r_seg_beats}} << {bus_prefix}_r_calc_size);
-  assign {bus_prefix}_r_seg_rem_next = {bus_prefix}_r_calc_beats - {bus_prefix}_r_seg_beats;
+{r_usr_sizing}{r_cont_sizing}  assign {bus_prefix}_r_calc_addr = {bus_prefix}_r_addr_from_user ? {bus_prefix}_usr_cmd_rd_addr
+                                                                 : {bus_prefix}_r_next_addr;
+  assign {bus_prefix}_r_seg_len = {bus_prefix}_r_addr_from_user ? {bus_prefix}_r_usr_seg_len
+                                                               : {bus_prefix}_r_cont_seg_len;
+  assign {bus_prefix}_r_seg_addr_next = {bus_prefix}_r_addr_from_user ? {bus_prefix}_r_usr_seg_addr_next
+                                                                     : {bus_prefix}_r_cont_seg_addr_next;
+  assign {bus_prefix}_r_seg_rem_next = {bus_prefix}_r_addr_from_user ? {bus_prefix}_r_usr_seg_rem_next
+                                                                    : {bus_prefix}_r_cont_seg_rem_next;
 
   // ---------------------------------------------------------------------------
   // Read user ports
@@ -652,29 +676,17 @@ def get_full_m_logic(bus_prefix, interface_name=None):
   // Write: 4KB / 256-beat INCR segment sizing (same method as read)
   // ---------------------------------------------------------------------------
   assign {bus_prefix}_w_addr_from_user = {bus_prefix}_usr_cmd_wr_ready & {bus_prefix}_usr_cmd_wr_valid;
-  assign {bus_prefix}_w_calc_addr  = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_addr
-                                                                  : {bus_prefix}_w_next_addr;
-  assign {bus_prefix}_w_calc_beats = {bus_prefix}_w_addr_from_user
-      ? ({{1'b0, {bus_prefix}_usr_cmd_wr_len}} + 9'd1)
-      : {bus_prefix}_w_rem_beats;
-  assign {bus_prefix}_w_calc_size  = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_size
-                                                                  : {bus_prefix}_awSIZE_o;
-  assign {bus_prefix}_w_calc_burst = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_burst
-                                                                  : {bus_prefix}_awBURST_o;
-  assign {bus_prefix}_w_bytes_to_boundary = 13'h1000 - {{1'b0, {bus_prefix}_w_calc_addr[11:0]}};
-  assign {bus_prefix}_w_beats_fit = {bus_prefix}_w_bytes_to_boundary >> {bus_prefix}_w_calc_size;
-  assign {bus_prefix}_w_page_cap = (|{bus_prefix}_w_beats_fit[12:8]) ? 9'd256
-                                                                   : {bus_prefix}_w_beats_fit[8:0];
-  assign {bus_prefix}_w_seg_beats =
-      ({bus_prefix}_w_calc_burst != 2'b01) ?
-          ((|{bus_prefix}_w_calc_beats[8]) ? 9'd256 : {bus_prefix}_w_calc_beats) :
-          (({bus_prefix}_w_calc_beats < {bus_prefix}_w_page_cap) ? {bus_prefix}_w_calc_beats
-                                                                : {bus_prefix}_w_page_cap);
-  assign {bus_prefix}_w_seg_len = {bus_prefix}_w_seg_beats[7:0] - 8'd1;
-  assign {bus_prefix}_w_seg_addr_next =
-      {bus_prefix}_w_calc_addr +
-      ({{{{({bus_prefix}_ADDR_WIDTH-9){{1'b0}}}}, {bus_prefix}_w_seg_beats}} << {bus_prefix}_w_calc_size);
-  assign {bus_prefix}_w_seg_rem_next = {bus_prefix}_w_calc_beats - {bus_prefix}_w_seg_beats;
+  // Both candidates are sized in parallel so the late addr_from_user only drives the output muxes.
+{w_usr_sizing}{w_cont_sizing}  assign {bus_prefix}_w_calc_addr = {bus_prefix}_w_addr_from_user ? {bus_prefix}_usr_cmd_wr_addr
+                                                                 : {bus_prefix}_w_next_addr;
+  assign {bus_prefix}_w_seg_beats = {bus_prefix}_w_addr_from_user ? {bus_prefix}_w_usr_seg_beats
+                                                                 : {bus_prefix}_w_cont_seg_beats;
+  assign {bus_prefix}_w_seg_len = {bus_prefix}_w_addr_from_user ? {bus_prefix}_w_usr_seg_len
+                                                               : {bus_prefix}_w_cont_seg_len;
+  assign {bus_prefix}_w_seg_addr_next = {bus_prefix}_w_addr_from_user ? {bus_prefix}_w_usr_seg_addr_next
+                                                                     : {bus_prefix}_w_cont_seg_addr_next;
+  assign {bus_prefix}_w_seg_rem_next = {bus_prefix}_w_addr_from_user ? {bus_prefix}_w_usr_seg_rem_next
+                                                                    : {bus_prefix}_w_cont_seg_rem_next;
 
   // ---------------------------------------------------------------------------
   // Write user ports
