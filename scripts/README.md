@@ -34,3 +34,20 @@ and
             Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Reg_next_value  
             ...  
             */  
+
+## unpacked_reg.py
+This script creates registers for unpacked arrays whose size depends on parameters. Each array is updated element by element inside for loops, all within a single always block, instead of one always block per element (e.g. per generate iteration). The fields follow `reg.py`, plus the array dimensions. `Reg_next` must be an array indexed like the register; `Reg_reset` and `Reg_enable` are scalars.
+
+### How to call
+> `include "unpacked_reg_{Reg_name}.vs" // Size, Dimensions, Reset Value, Reg_reset, Reg_enable, Reg_next_value"
+
+and
+
+> `include "unpacked_reg_{list_name}.vs" /*  
+            Reg_name0, Size, [DIM0][DIM1], Reset Value, Reg_reset, Reg_enable, Reg_next_value  
+            Reg_name1, Size, [DIM0], Reset Value, Reg_reset, Reg_enable, Reg_next_value  
+            ...  
+            */  
+
+### Dependencies
+- reg.py
