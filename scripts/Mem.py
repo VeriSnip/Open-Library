@@ -3,8 +3,9 @@
 # mem.py script creates a memory
 # To call this script in a Verilog file it should follow one of the following patterns:
 #   `include "Mem_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
-# where Type can be: RAM, distributed RAM, BRAM, URAM, or ROM.
+# where Type can be: RAM, distributed RAM, BRAM, TDP BRAM, URAM, or ROM.
 # RAM leaves ram_style unconstrained so synthesis can choose LUTRAM or BRAM.
+# TDP BRAM is a true dual-port block RAM: ports a and b each read (read-first) and write.
 # The Init_file is optional for RAM, distributed RAM, and BRAM, required for ROM,
 # and not allowed for URAM (UltraRAM cannot be initialized from a file).
 # Default values are: Type = None; Depth = None; Width = None; Init_file = None.
@@ -22,10 +23,11 @@ VALID_TYPES = {
     "RAM": ("RAM", "AUTO"),
     "DISTRIBUTED RAM": ("RAM", "DISTRIBUTED"),
     "BRAM": ("RAM", "BRAM"),
+    "TDP BRAM": ("TDP", "BRAM"),
     "URAM": ("RAM", "URAM"),
     "ROM": ("ROM", "DISTRIBUTED"),
 }
-VALID_TYPE_HELP = "RAM, distributed RAM, BRAM, URAM, or ROM"
+VALID_TYPE_HELP = "RAM, distributed RAM, BRAM, TDP BRAM, URAM, or ROM"
 
 
 class Memory:
@@ -85,12 +87,23 @@ def _init_block(mem):
 """
 
 
-def _byte_enable_write(mem):
-    return f"""    for ({mem.name}_b = 0; {mem.name}_b < {mem.width} / 8; {mem.name}_b = {mem.name}_b + 1) begin
-      if ({mem.name}_w_en[{mem.name}_b]) begin
-        {mem.name}[{mem.name}_w_addr][8*{mem.name}_b+:8] <= {mem.name}_data_in[8*{mem.name}_b+:8];
+def _ram_port(mem, port, r_addr, w_addr, registered_read=True):
+    read_reg = (
+        f"    {port}_data_out <= {mem.name}[{r_addr}];\n" if registered_read else ""
+    )
+    code = f"""
+  integer {port}_i;
+  always_ff @(posedge clk_i) begin
+{read_reg}    for ({port}_i = 0; {port}_i < {mem.width} / 8; {port}_i = {port}_i + 1) begin
+      if ({port}_w_en[{port}_i]) begin
+        {mem.name}[{w_addr}][8*{port}_i+:8] <= {port}_data_in[8*{port}_i+:8];
       end
-    end"""
+    end
+  end
+"""
+    if not registered_read:
+        code += f"  assign {port}_data_out = {mem.name}[{r_addr}];\n"
+    return code
 
 
 def memory_signals(mem):
@@ -104,13 +117,21 @@ def memory_signals(mem):
   localparam integer {address_width} = (({mem.depth}==1) ? 1 : $clog2({mem.depth}));
 {ram_attr}  logic [{mem.width}-1:0] {mem.name} [{mem.depth}];
 """
-    if mem.kind == "RAM":
-        verilog_code += f"  logic [{address_width}-1:0] {mem.name}_w_addr;\n"
-    verilog_code += f"  logic [{address_width}-1:0] {mem.name}_r_addr;\n"
-    verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_out;\n"
-    if mem.kind == "RAM":
-        verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_in;\n"
-        verilog_code += f"  logic [{mem.width}/8-1:0] {mem.name}_w_en;\n"
+    if mem.kind == "TDP":
+        for port in ("a", "b"):
+            p = f"{mem.name}_{port}"
+            verilog_code += f"  logic [{address_width}-1:0] {p}_addr;\n"
+            verilog_code += f"  logic [{mem.width}-1:0] {p}_data_in;\n"
+            verilog_code += f"  logic [{mem.width}-1:0] {p}_data_out;\n"
+            verilog_code += f"  logic [{mem.width}/8-1:0] {p}_w_en;\n"
+    else:
+        if mem.kind == "RAM":
+            verilog_code += f"  logic [{address_width}-1:0] {mem.name}_w_addr;\n"
+        verilog_code += f"  logic [{address_width}-1:0] {mem.name}_r_addr;\n"
+        verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_out;\n"
+        if mem.kind == "RAM":
+            verilog_code += f"  logic [{mem.width}-1:0] {mem.name}_data_in;\n"
+            verilog_code += f"  logic [{mem.width}/8-1:0] {mem.name}_w_en;\n"
 
     with open(f"Mem_{vs_name_suffix}_signals.vs", "w") as file:
         file.write(verilog_code)
@@ -120,30 +141,29 @@ def memory_signals(mem):
 def memory_logic(mem):
     verilog_code = f"  // Automatically generated logic for {mem.name} {mem.type} memory\n"
     if mem.kind == "ROM":
-        verilog_code += f"  initial begin\n"
-        verilog_code += f'    $readmemh("{mem.init_file}", {mem.name});\n'
-        verilog_code += f"  end\n\n"
+        verilog_code += _init_block(mem)
         verilog_code += (
             f"  assign {mem.name}_data_out = {mem.name}[{mem.name}_r_addr];\n\n"
         )
+    elif mem.kind == "TDP":
+        verilog_code += _init_block(mem)
+        for suffix in ("a", "b"):
+            p = f"{mem.name}_{suffix}"
+            verilog_code += _ram_port(mem, p, f"{p}_addr", f"{p}_addr")
     elif mem.style == "DISTRIBUTED":
         verilog_code += _init_block(mem)
-        verilog_code += f"""
-  integer {mem.name}_b;
-  always_ff @(posedge clk_i) begin
-{_byte_enable_write(mem)}
-  end
-  assign {mem.name}_data_out = {mem.name}[{mem.name}_r_addr];\n
-"""
-    elif mem.style in ("AUTO", "BRAM", "URAM"):
+        verilog_code += _ram_port(
+            mem, mem.name, f"{mem.name}_r_addr", f"{mem.name}_w_addr", False
+        )
+    elif mem.style in ("AUTO", "BRAM"):
         verilog_code += _init_block(mem)
-        verilog_code += f"""
-  integer {mem.name}_b;
-  always_ff @(posedge clk_i) begin
-    {mem.name}_data_out <= {mem.name}[{mem.name}_r_addr];
-{_byte_enable_write(mem)}
-  end
-"""
+        verilog_code += _ram_port(
+            mem, mem.name, f"{mem.name}_r_addr", f"{mem.name}_w_addr"
+        )
+    elif mem.style == "URAM":
+        verilog_code += _ram_port(
+            mem, mem.name, f"{mem.name}_r_addr", f"{mem.name}_w_addr"
+        )
     else:
         vs_print(ERROR, "Invalid memory type.")
         exit(1)
