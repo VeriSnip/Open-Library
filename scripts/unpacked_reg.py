@@ -1,24 +1,17 @@
 #!/usr/bin/env python
 
-# unpacked_reg.py script creates registers for unpacked arrays of parameter-dependent size.
-# Every array register is updated element by element inside a for loop, so a whole array
-# costs a single always block instead of one per element (e.g. per generate iteration).
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "unpacked_reg_{Reg_name}.vs" // Size, Dimensions, Reset Value, Reg_reset, Reg_enable, Reg_next
-# and
-#   `include "unpacked_reg_{list_name}.vs" /*
-#             Reg_name0, Size, Dimensions, Reset Value, Reg_reset, Reg_enable, Reg_next
-#             Reg_name1, Size, Dimensions, Reset Value, Reg_reset, Reg_enable, Reg_next
-#             ...
-#             */
-# Dimensions are the unpacked array sizes, e.g. [SA_HEIGHT][SA_WIDTH].
-# Reg_next is an array indexed like the register; Reg_reset and Reg_enable are scalars.
-# Remaining fields and defaults follow reg.py.
+# unpacked_reg.py generates registers for unpacked arrays, updated in a single always block.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "unpacked_reg_{list_name}.vs" /* [reset = <rst>,] [clock = <clk>]
+#     Name, Size, [DIM0][DIM1], Reset_value, Reg_reset, Reg_enable, Reg_next
+#     */
+# Reg_next is indexed like the register; Reg_reset and Reg_enable are scalars. Other fields follow reg.py.
+# Only synchronous, active-high resets are supported.
 
 import sys, re
 
 from VeriSnip.vs_colours import *
-from reg import register, write_vs
+from reg import register, write_vs, parse_global_header
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 vs_name = f"unpacked_reg_{vs_name_suffix}.vs"
@@ -37,9 +30,15 @@ class array_register(register):
         super().__init__(reg_properties)
 
 
-def reg_description(reg_list):
+def reg_description(reg_list, clock="clk_i", global_rst=None):
     verilog_code = f"  // Automatically generated array register {vs_name_suffix}\n"
-    verilog_code += "  always @(posedge clk_i) begin\n"
+    for reg in reg_list:
+        if global_rst is not None and reg.rst is not None:
+            verilog_code += f"  wire {reg.name}_int_rst = {global_rst} | {reg.rst};\n"
+            reg.rst = f"{reg.name}_int_rst"
+        elif global_rst is not None:
+            reg.rst = global_rst
+    verilog_code += f"  always @(posedge {clock}) begin\n"
     for reg in reg_list:
         indices = [f"k{depth}" for depth in range(len(reg.dimensions))]
         index = "".join(f"[{k}]" for k in indices)
@@ -74,18 +73,16 @@ def parse_arguments():
         vs_print(ERROR, "Not enough arguments.")
         exit(1)
 
-    if "//" in sys.argv[2]:
-        registers_description = [f'{vs_name_suffix}, {sys.argv[2][sys.argv[2].index("//")+2:]}']
-    else:
-        registers_description = [line for line in sys.argv[2].split("\n") if line.strip()]
+    comment = sys.argv[2].replace("/*", "").replace("*/", "").strip()
+    lines = [line.strip() for line in comment.split("\n") if line.strip()]
+    clock, global_rst, lines = parse_global_header(lines)
 
     # Split the string by commas outside of any type of braces
-    return [
-        array_register(re.split(r",(?![^{}[\]()]*[}\])])", description))
-        for description in registers_description
-    ]
+    reg_list = [array_register(re.split(r",(?![^{}[\]()]*[}\])])", description)) for description in lines]
+    return reg_list, clock, global_rst
 
 
 # Check if this script is called directly
 if __name__ == "__main__":
-    write_vs(reg_description(parse_arguments()), vs_name)
+    reg_list, clock, global_rst = parse_arguments()
+    write_vs(reg_description(reg_list, clock, global_rst), vs_name)

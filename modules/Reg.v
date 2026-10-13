@@ -39,7 +39,9 @@ module Reg #(
 
   assign free_n = ~free_q;
 
-  `include "reg_data_q.vs"  // DATA_W, RST_VAL, data_rst, _e, _n
+  `include "reg_data_q.vs"  /*
+    data_q, DATA_W, RST_VAL, data_rst, _e, _n
+    */
 
   `include "reg_reg_list.vs"  /*
     count_q, 8, 0, count_rst, count_en, count_n

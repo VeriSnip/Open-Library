@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 
-# synchronize_reset.py script creates a Verilog Snippet for synchronizing an asynchronous reset.
-# To call this script in a Verilog file it should follow the following pattern:
+# synchronize_reset.py generates a reset synchronizer.
+# To call this script in a Verilog file, use the following pattern:
 #   `include "synchronize_reset_{prefix}.vs" // arst_i (active-low), sync_reset (active-high), clock = clk_i
-#
-# Default values are:
-#   arst_i (active-low) for the asynchronous reset
-#   sync_reset (active-low) for the synchronous reset
-#   clock = clk_i
+# Defaults: arst_i (active-low), sync_reset (active-low), clock = clk_i.
 
 import sys, re
 

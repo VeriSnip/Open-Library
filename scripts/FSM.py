@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 
-# FSM.py script creates a finite state machine.
-# To call this script in a Verilog file it should follow:
-#   `include "FSM_{FSM_name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>
-#     Current_state -> Next_state: Condition
-#                   -> Next_state              // unconditional (else) transition
-#     ...
+# FSM.py generates a finite state machine.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>
+#     State -> Next_state: Condition
+#           -> Next_state              // unconditional (else) transition
 #     */
-# Signals are written to FSM_{FSM_name}_signals.vs (include with VS_NO_GENERATE).
-# Defaults: asynchronous reset = arst_i, clock = clk_i. Encoding is Gray (one-hot also supported).
-# Condition wires are named {FSM_name}_{From}_{To} and driven by continuous assigns.
-# A combinational {FSM_name}_error signal is generated and set high whenever the
-# FSM lands in a state outside the defined encoding (caught by the case default).
+# Signals go to FSM_{name}_signals.vs (include it with VS_NO_GENERATE).
+# Defaults: asynchronous reset = arst_i, clock = clk_i, gray encoding.
+# {name}_error is raised when the state leaves the defined encoding.
 
 import re
 import sys

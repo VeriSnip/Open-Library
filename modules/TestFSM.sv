@@ -70,6 +70,8 @@ module TestFSM (
     endcase
   end
 
-  `include "reg_output_signal.vs"  // 4, 0, sync_reset, , _n
+  `include "reg_output_signal.vs"  /*
+    output_signal, 4, 0, sync_reset, , _n
+    */
 
 endmodule

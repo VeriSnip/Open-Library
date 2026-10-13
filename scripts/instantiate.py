@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# instantiate.py script creates the instantiation of a module
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "instantiate_{module}_{module_name}.vs" // prefix="prefix" suffix="suffix" {port_name}="connected signal"
-# Default values are: prefix = "{module_name}_"; suffix = ""; {port_name} = "{prefix}{port_name}{suffix}".
+# instantiate.py generates the instantiation of a module.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "instantiate_{module}_{instance_name}.vs" // prefix="p" suffix="s" {port}="signal"
+# Defaults: prefix = "{instance_name}_"; suffix = ""; each port connects to {prefix}{port}{suffix}.
 
 import sys, os, re
 import subprocess

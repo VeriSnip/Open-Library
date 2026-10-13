@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 
-# reg.py script creates a register
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "reg_{Reg_name}.vs" // Size, Reset Value, Reg_reset, Reg_enable, Reg_next
-# and
-#   `include "reg_{list_name}.vs" /*
-#             Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next
-#             Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Reg_next
-#             Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Reg_next
-#             ...
-#             */
-# Default values are: Size = 1 bit; Reset Value = 0; Reg_reset = None; Reg_enable = None; Reg_next = {Reg_name}_n.
+# reg.py generates a list of registers.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "reg_{list_name}.vs" /* [reset = <rst>,] [clock = <clk>]
+#     Name, Size, Reset_value, Reg_reset, Reg_enable, Reg_next
+#     */
+# Defaults: clock = clk_i, no global reset, Size = 1, Reset_value = 0, no Reg_reset/Reg_enable, Reg_next = {Name}_n.
+# A register with a global and a custom reset gets {Name}_int_rst = global | custom.
+# Only synchronous, active-high resets are supported.
 
 import sys, re
 
@@ -114,11 +111,41 @@ def write_vs(string="", file_name="reg.vs"):
         file.write(string)
 
 
-def reg_description(reg_list):
+def parse_global_header(lines):
+    """Parse an optional 'reset = <rst>, clock = <clk>' first line.
+
+    Returns (clock, reset, remaining_lines). Lines whose every comma separated part is a
+    reset/clock assignment are a header; anything else is a register description.
+    """
+    clock = "clk_i"
+    reset = None
+    if not lines:
+        return clock, reset, lines
+    parts = [part.strip() for part in lines[0].split(",")]
+    assignments = [part.split("=", 1) if "=" in part else None for part in parts]
+    keys = ("reset", "rst", "clock", "clk")
+    if not all(a is not None and a[0].strip().lower() in keys for a in assignments):
+        return clock, reset, lines
+    for key, value in assignments:
+        key, value = key.strip().lower(), value.strip()
+        if key in ("reset", "rst"):
+            reset = value if value not in ("", "None") else None
+        else:
+            clock = value
+    return clock, reset, lines[1:]
+
+
+def reg_description(reg_list, clock="clk_i", global_rst=None):
     verilog_code = f"  // Automatically generated register {vs_name_suffix}\n"
-    verilog_code += "  always @(posedge clk_i) begin\n"
     for reg in reg_list:
-        verilog_code += f"      // Register {reg.signal}\n"
+        if global_rst is not None and reg.rst is not None:
+            verilog_code += f"  wire {reg.name}_int_rst = {global_rst} | {reg.rst};\n"
+            reg.rst = f"{reg.name}_int_rst"
+        elif global_rst is not None:
+            reg.rst = global_rst
+    verilog_code += f"  always @(posedge {clock}) begin\n"
+    for reg in reg_list:
+        verilog_code += f"    // Register {reg.signal}\n"
         if (reg.rst is not None) and (reg.en is not None):
             verilog_code += f"    if ({reg.rst}) begin\n"
             verilog_code += f"      {reg.signal} <= {reg.rst_val};\n"
@@ -143,31 +170,25 @@ def reg_description(reg_list):
 
 
 def parse_arguments():
-    register_list = []
-    registers_description = []
-
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         vs_print(ERROR, "Not enough arguments.")
         exit(1)
 
-    # Check if any argument contains "//"
-    has_double_slash = any("//" in arg for arg in sys.argv[1:])
-    if has_double_slash:
-        joined_args = f'{vs_name_suffix}, {sys.argv[2][sys.argv[2].index("//")+2:]}'
-        registers_description = [joined_args]
-    else:
-        registers_description = sys.argv[2].split("\n")
+    comment = sys.argv[2].replace("/*", "").replace("*/", "").strip()
+    lines = [line.strip() for line in comment.split("\n") if line.strip()]
+    clock, global_rst, lines = parse_global_header(lines)
 
-    for description in registers_description:
+    register_list = []
+    for description in lines:
         # Split the string by commas outside of any type of braces
         reg_properties = re.split(r",(?![^{}[\]()]*[}\])])", description)
         register_list.append(register(reg_properties))
 
-    return register_list
+    return register_list, clock, global_rst
 
 
 # Check if this script is called directly
 if __name__ == "__main__":
-    reg_list = parse_arguments()
-    vs_content = reg_description(reg_list)
+    reg_list, clock, global_rst = parse_arguments()
+    vs_content = reg_description(reg_list, clock, global_rst)
     write_vs(vs_content, vs_name)

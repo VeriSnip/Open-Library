@@ -1,30 +1,24 @@
 #!/usr/bin/env python
 
-# MMIO.py script creates memory mapped registers
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "MMIO_{module}.vs" /*
-#   Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
-#   Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
-#   Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Address, Access Type, Next Value
-#   ...
-#   */
-# Default values are: Size = 1 bit; Reset Value = 0; Reg_reset = None; Reg_enable = None; Access Type = "R/W"; Next Value = Reg_name.
-# The combinational next-state wire for each MMIO register is always {Reg_name}_next.
-# Reg_enable gates both the write select and the underlying register's own clock
-# enable; the read select is address-decoded only, so a register stays readable at
-# its last committed value even while its enable is deasserted.
-# A register with an explicit Next Value does NOT get the built-in w_sel/w_data
-# write mux, even if "W" is in Access Type: the Next Value expression is assumed to
-# own the register's next state entirely, so if it should still react to writes it
-# must reference {w_sel}/{w_data}/w_enable itself (w_sel alone is not w_enable-gated).
+# MMIO.py generates memory mapped registers on top of reg.py.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "MMIO_{module}.vs" /* [reset = <rst>,] [clock = <clk>]
+#     Name, Size, Reset_value, Reg_reset, Reg_enable, Address, Access_type, Next_value
+#     */
+# Defaults: clock = clk_i, no global reset, Access_type = R/W, Next_value = Name. Other fields follow reg.py.
+# The next-state wire is {Name}_next. Reg_enable gates writes but not reads.
+# A custom Next_value replaces the built-in write mux and must handle w_sel/w_data itself.
+# Only synchronous, active-high resets are supported.
 
 import subprocess
 import sys
 from VeriSnip.vs_colours import *
-from reg import register
+from reg import register, parse_global_header
 
 vs_name_suffix = sys.argv[1].removesuffix(".vs")
 
+clock = "clk_i"
+global_rst = None
 assigns = ""
 read_always = ""
 write_always = ""
@@ -118,11 +112,14 @@ def custom_split(description):
 
 
 def parse_arguments():
+    global clock, global_rst
     reg_list = []
     if (len(sys.argv) < 2) or (sys.argv[2].strip() == ""):
         vs_print(ERROR, "Not enough arguments")
         exit(1)
-    list_of_regs = sys.argv[2].split("\n")
+    comment = sys.argv[2].replace("/*", "").replace("*/", "").strip()
+    list_of_regs = [line.strip() for line in comment.split("\n") if line.strip()]
+    clock, global_rst, list_of_regs = parse_global_header(list_of_regs)
     for reg in list_of_regs:
         reg_list.append(memory_mapped_register(reg))
     return reg_list
@@ -177,7 +174,8 @@ def print_mmio_info(mm_reg_list):
 
 
 def registers_description(mm_reg_list):
-    reg_desc = f'  `include "reg_MMIO_{vs_name_suffix}.vs" /*\n'
+    header = f"clock = {clock}" + (f", reset = {global_rst}" if global_rst else "")
+    reg_desc = f'  `include "reg_MMIO_{vs_name_suffix}.vs" /* {header}\n'
     for mm_reg in mm_reg_list:
         reg_desc += f"    {mm_reg.reg.signal}, {mm_reg.reg.size}, {mm_reg.reg.rst_val}, {mm_reg.reg.rst}, {mm_reg.reg.en}, {mm_reg.reg.next}\n"
     reg_desc += "  */\n"

@@ -1,53 +1,80 @@
-# MyScripts
-This files gives a little information about the scripts under the current directory. This scripts are intended to generate automatic Verilog snippets code.
+# Scripts
+Generator scripts for VeriSnip. Each script is called through a `` `include "<script>_<name>.vs" `` line in a Verilog file and writes the matching `.vs` snippet. The full syntax and defaults are in the comment at the top of each script.
+
+Two conventions are shared by the register scripts (`reg.py`, `unpacked_reg.py`, `MMIO.py`) and `FSM.py`:
+- A list is written inside `/* ... */`. An optional first line right after `/*` sets the clock and reset (`reset = <rst>, clock = <clk>`).
+- Resets in the register scripts are synchronous and active-high only.
+
+| Script | Generates |
+|---|---|
+| [AXI.py](AXI.py) | AXI5 parameters, IOs, signals and logic (`AXI_{ios,signals,logic}[_name].vs`) |
+| [counter.py](counter.py) | Up or down counter |
+| [FSM.py](FSM.py) | Finite state machine |
+| [instantiate.py](instantiate.py) | Module instantiation |
+| [Mem.py](Mem.py) | RAM, ROM and true dual-port memories |
+| [MMIO.py](MMIO.py) | Memory mapped registers |
+| [reg.py](reg.py) | Registers |
+| [synchronize_reset.py](synchronize_reset.py) | Reset synchronizer |
+| [unpacked_reg.py](unpacked_reg.py) | Registers for unpacked arrays |
+
+## AXI.py
+Creates the parameters, IOs, signals and logic of AXI5 buses. The `AXI-Lite` Subordinate and `AXI-Full` Manager interfaces are implemented; the other combinations print a warning. Several buses can share one interface name.
+
+> `include "AXI_[ios,signals,logic][_{interface_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] [{bus_name}]
+
+Dependencies: `reg.py`, `FSM.py`.
+
+## counter.py
+Creates a counter as a register plus a `{name}_next` assign.
+
+> `include "counter_{name}.vs" // Width, Enable, Reset, Reset_value, Direction
+
+Dependencies: `reg.py`.
+
+## FSM.py
+Creates a finite state machine from a list of transitions, with Gray or one-hot encoding and an error flag for illegal states. Signals are written to `FSM_{name}_signals.vs`.
+
+> `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>  
+    State -> Next_state: Condition  
+          -> Next_state  
+    */
 
 ## instantiate.py
+Instantiates a module found in the project, with optional port prefix, suffix and per-port connections.
 
-## mmio.py
-This script
+> `include "instantiate_{module}_{instance_name}.vs" // prefix="p" suffix="s" {port}="signal"
 
-### How to call
+## Mem.py
+Creates a memory of type RAM, distributed RAM, BRAM, TDP BRAM, URAM or ROM, with an optional init file.
 
-> Should be called as "`include "mmio_{module}.vs" /*  
-                        Reg_name0, Address, Size, Reset Value, Access Type, Reg_reset, Reg_enable, Reg_next_value  
-                        Reg_name1, Address, Size, Reset Value, Access Type, Reg_reset, Reg_enable, Reg_next_value  
-                        Reg_name2, Address, Size, Reset Value, Access Type, Reg_reset, Reg_enable, Reg_next_value  
-                        ...  
-                        */
+> `include "Mem_{name}.vs" // Type, Depth, Width, Init_file
 
-### Dependencies
-- reg.py
+## MMIO.py
+Creates memory mapped registers with address decoding, read and write selects and read and write data muxes. The registers themselves are generated through `reg.py`, which receives the global clock and reset.
+
+> `include "MMIO_{module}.vs" /* [reset = <rst>,] [clock = <clk>]  
+    Name, Size, Reset_value, Reg_reset, Reg_enable, Address, Access_type, Next_value  
+    */
+
+Dependencies: `reg.py`.
 
 ## reg.py
-This script creates a snippet which instantiates one register or a list of registers. Every register should have a asynchronous reset and a clock signal. The registers can also have a synchronous reset signal and an enable signal. No more logic should be included when describing registers.
+Creates a list of registers. A register with both a global and a custom reset gets a `{Name}_int_rst` wire, the OR of the two. Inline registers (`// ...`) are not supported.
 
-### How to call
-The `reg.py` script can be called in two different ways. It could be called to describe only one register or it can receive a list of registers to describe. The ways to call it are respectively:
+> `include "reg_{list_name}.vs" /* [reset = <rst>,] [clock = <clk>]  
+    Name, Size, Reset_value, Reg_reset, Reg_enable, Reg_next  
+    */
 
-> `include "reg_{Reg_name}.vs" // Size, Reset Value, Reg_reset, Reg_enable, Reg_next_value"
+## synchronize_reset.py
+Creates a reset synchronizer: asynchronous assert, synchronous de-assert. Both resets can be active-low or active-high.
 
-and
-
-> `include "reg_{list_name}.vs" /*  
-            Reg_name0, Size, Reset Value, Reg_reset, Reg_enable, Reg_next_value  
-            Reg_name1, Size, Reset Value, Reg_reset, Reg_enable, Reg_next_value  
-            Reg_name2, Size, Reset Value, Reg_reset, Reg_enable, Reg_next_value  
-            ...  
-            */  
+> `include "synchronize_reset_{prefix}.vs" // arst_i (active-low), sync_reset (active-high), clock = clk_i
 
 ## unpacked_reg.py
-This script creates registers for unpacked arrays whose size depends on parameters. Each array is updated element by element inside for loops, all within a single always block, instead of one always block per element (e.g. per generate iteration). The fields follow `reg.py`, plus the array dimensions. `Reg_next` must be an array indexed like the register; `Reg_reset` and `Reg_enable` are scalars.
+Creates registers for unpacked arrays whose size depends on parameters. All arrays are updated with for loops inside a single always block instead of one block per element. Fields and header follow `reg.py`, plus the array dimensions.
 
-### How to call
-> `include "unpacked_reg_{Reg_name}.vs" // Size, Dimensions, Reset Value, Reg_reset, Reg_enable, Reg_next_value"
+> `include "unpacked_reg_{list_name}.vs" /* [reset = <rst>,] [clock = <clk>]  
+    Name, Size, [DIM0][DIM1], Reset_value, Reg_reset, Reg_enable, Reg_next  
+    */
 
-and
-
-> `include "unpacked_reg_{list_name}.vs" /*  
-            Reg_name0, Size, [DIM0][DIM1], Reset Value, Reg_reset, Reg_enable, Reg_next_value  
-            Reg_name1, Size, [DIM0], Reset Value, Reg_reset, Reg_enable, Reg_next_value  
-            ...  
-            */  
-
-### Dependencies
-- reg.py
+Dependencies: `reg.py`.

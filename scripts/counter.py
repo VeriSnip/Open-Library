@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
-# counter.py script creates a Verilog Snippet for a counter.
-# To call this script in a Verilog file it should follow the following patterns:
-#   `include "counter_{name}.vs" // Counter Width, Enable, Reset, Reset Value, Direction
-
-# Default values are: Counter Width = 8 bits; Enable = 1'b1; Reset = 1'b0; Reset Value = 0;
-# Direction = up. Direction is either "up" (increment) or "down" (decrement).
+# counter.py generates a counter built on reg.py.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "counter_{name}.vs" // Width, Enable, Reset, Reset_value, Direction
+# Defaults: 8, 1'b1, 1'b0, 0, up. Direction is "up" or "down".
 
 import sys, re
 
@@ -23,7 +21,9 @@ def write_vs(string="", file_name=None):
 def verilog_string(counter_width, enable, reset, reset_value, direction):
     operator = "-" if direction == "down" else "+"
     verilog_code = f"  // Automatically generated {vs_name_suffix}\n"
-    verilog_code += f'  `include "reg_{vs_name_suffix}.vs" // {counter_width}, {reset_value}, {reset}, {enable}, {vs_name_suffix}_next\n'
+    verilog_code += f'  `include "reg_{vs_name_suffix}.vs" /*\n'
+    verilog_code += f"    {vs_name_suffix}, {counter_width}, {reset_value}, {reset}, {enable}, {vs_name_suffix}_next\n"
+    verilog_code += "  */\n"
     verilog_code += f'  assign {vs_name_suffix}_next = {vs_name_suffix} {operator} 1;\n'
     return verilog_code
 

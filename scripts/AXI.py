@@ -1,20 +1,10 @@
 #!/usr/bin/env python
 
-# AXI.py script creates required AXI5 IOs and logic for Lite, Stream, and Full interfaces.
-# It generates two files:
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "AXI_[ios,signals,logic][_{interface/bus_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
-# and
-#   `include "AXI_[ios,signals,logic][_{interface_name}].vs" /*
-#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
-#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
-#             AXI-[Lite,Full,Stream] [Manager,Subordinate] {bus_name}
-#             ...
-#             */
-# Notes:
-# - {bus_name} is optional. If it is not provided, the script will use the interface name as the bus name.
-# - {interface_name} is optional. If it is not provided, the script will use the bus name as the interface name.
-# - We use the term "beat" to refer to a single data transfer.
+# AXI.py generates AXI5 parameters, IOs, signals and logic for Lite, Stream and Full interfaces.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "AXI_[ios,signals,logic][_{interface_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] [{bus_name}]
+# or, for several buses on one interface, one "AXI-<type> <node> [bus_name]" per line inside /* ... */.
+# Without a bus_name the interface name is used; without an interface name the bus name is used.
 
 from logging import Manager
 import subprocess

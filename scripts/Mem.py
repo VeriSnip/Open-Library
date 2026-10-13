@@ -1,15 +1,10 @@
 #!/usr/bin/env python
 
-# mem.py script creates a memory
-# To call this script in a Verilog file it should follow one of the following patterns:
-#   `include "Mem_{Memory_name}.vs" // Type, Depth, Width, Init_file (optional)
-# where Type can be: RAM, distributed RAM, BRAM, TDP BRAM, URAM, or ROM.
-# RAM leaves ram_style unconstrained so synthesis can choose LUTRAM or BRAM.
-# TDP BRAM is a true dual-port block RAM: ports a and b each read (read-first) and write.
-# The Init_file is optional for RAM, distributed RAM, and BRAM, required for ROM,
-# and not allowed for URAM (UltraRAM cannot be initialized from a file).
-# Default values are: Type = None; Depth = None; Width = None; Init_file = None.
-
+# Mem.py generates a memory.
+# To call this script in a Verilog file, use the following pattern:
+#   `include "Mem_{name}.vs" // Type, Depth, Width, Init_file
+# Type: RAM (synthesis chooses), distributed RAM, BRAM, TDP BRAM (true dual-port), URAM or ROM.
+# Init_file is optional, required for ROM and not allowed for URAM.
 
 import sys
 
