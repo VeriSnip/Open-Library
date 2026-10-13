@@ -855,9 +855,7 @@ def parse_arguments():
         vs_print(INFO, "Example: python AXI.py lite_s")
         exit(1)
     
-    vs_name_suffix = sys.argv[1]
-    for token in ("ios", "logic", "signals"):
-        vs_name_suffix = vs_name_suffix.replace(token, "")
+    vs_name_suffix = re.sub(r"^(ios|logic|signals|parameters)(_|$)", "", sys.argv[1])
     config_line = sys.argv[2].strip()
     configurations = config_line.replace(",", "").replace("//", "").replace("/*", "").replace("*/", "").strip()
     interface = AXIInterface(vs_name_suffix, configurations)
