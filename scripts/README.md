@@ -18,7 +18,7 @@ Two conventions are shared by the register scripts (`reg.py`, `unpacked_reg.py`,
 | [unpacked_reg.py](unpacked_reg.py) | Registers for unpacked arrays |
 
 ## AXI.py
-Creates the parameters, IOs, signals and logic of AXI5 buses. The `AXI-Lite` Subordinate and `AXI-Full` Manager interfaces are implemented; the other combinations print a warning. Several buses can share one interface name.
+Creates the parameters, IOs, signals and logic of AXI5 buses. The `AXI-Lite` Subordinate and `AXI-Full` Manager interfaces are implemented; the other combinations print a warning. Several buses can share one interface name: a list of buses keeps the bus names as written, so the interface name only names the files, while a single bus without a name takes the interface name. A named AXI-Full Manager gets its own `ActiveByteLanes<name>` localparam, so several can live in one module. An AXI-Full Manager line ending in `READ_ONLY` (e.g. `AXI-Full Manager W READ_ONLY`) has no AW/W/B channels, ports or write logic.
 
 > `include "AXI_[ios,signals,logic][_{interface_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] [{bus_name}]
 

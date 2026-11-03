@@ -4,7 +4,9 @@
 # To call this script in a Verilog file, use the following pattern:
 #   `include "AXI_[ios,signals,logic][_{interface_name}].vs" // AXI-[Lite,Full,Stream] [Manager,Subordinate] [{bus_name}]
 # or, for several buses on one interface, one "AXI-<type> <node> [bus_name]" per line inside /* ... */.
-# Without a bus_name the interface name is used; without an interface name the bus name is used.
+# An AXI-Full Manager followed by READ_ONLY has no AW/W/B channels.
+# A single bus without a bus_name takes the interface name; a list of buses keeps the names as
+# written, so the interface name only names the generated files.
 
 from logging import Manager
 import subprocess
@@ -16,16 +18,19 @@ from VeriSnip.vs_colours import *
 
 class AXIConfiguration:
     def __init__(self, configuration):
-        configuration = configuration.split(" ")
-        self.type = configuration[0]
-        self.node = configuration[1]
-        self.name = configuration[2]
+        tokens = configuration.split()
+        self.read_only = "READ_ONLY" in tokens
+        tokens = [token for token in tokens if token != "READ_ONLY"]
+        self.type = tokens[0]
+        self.node = tokens[1]
+        self.name = tokens[2] if len(tokens) > 2 else ""
 
 class AXIInterface:
     def __init__(self, vs_suffix, configurations):
         self.interface_name = vs_suffix
         self.conf_list = configurations.split("\n")
-        self.buses = [AXIConfiguration(conf.strip() + " " + self.interface_name) for conf in self.conf_list]
+        default_name = "" if len(self.conf_list) > 1 else self.interface_name
+        self.buses = [AXIConfiguration(conf.strip() + " " + default_name) for conf in self.conf_list]
 
     def generate(self):
         parameters_content = ""
@@ -34,6 +39,8 @@ class AXIInterface:
         signals_content = ""
 
         for bus in self.buses:
+            if bus.read_only and not (bus.type == "AXI-Full" and bus.node == "Manager"):
+                vs_print(WARNING, f"READ_ONLY is only implemented for the AXI-Full Manager; ignored on {bus.type} {bus.node}.")
             if bus.type == "AXI-Lite" and bus.node == "Manager":
                   vs_print(WARNING, "AXI-Lite Manager interface not implemented yet.")
                   pass
@@ -52,11 +59,12 @@ class AXIInterface:
                 pass
             elif bus.type == "AXI-Full" and bus.node == "Manager":
                 prefix = f"AXI_M_{bus.name}" if bus.name else "AXI_M"
-                parameters_content += get_full_m_parameters(prefix)
-                ios_content += get_full_m_ios(prefix)
-                signals_content += get_full_m_signals(prefix)
-                logic_content += get_full_m_logic(prefix)
-                vs_print(INFO, f"Generating AXI-Full Manager {bus.name} interface.")
+                parameters_content += get_full_m_parameters(prefix, bus.read_only)
+                ios_content += get_full_m_ios(prefix, bus.read_only)
+                signals_content += get_full_m_signals(prefix, bus.read_only)
+                logic_content += get_full_m_logic(prefix, bus.read_only)
+                mode = " (read-only)" if bus.read_only else ""
+                vs_print(INFO, f"Generating AXI-Full Manager {bus.name} interface{mode}.")
             elif bus.type == "AXI-Full" and bus.node == "Subordinate":
                 vs_print(WARNING, "AXI-Full Subordinate interface not implemented yet.")
                 pass
@@ -330,11 +338,12 @@ def get_lite_s_logic(bus_prefix, interface_name=None):
 """
 # I should add global resets to register lists
 
-def get_full_m_parameters(bus_prefix):
+def get_full_m_parameters(bus_prefix, read_only=False):
+    id_w = "" if read_only else f"    parameter integer {bus_prefix}_ID_W_WIDTH = 1,\n"
+    bresp = "" if read_only else f"    parameter integer {bus_prefix}_BRESP_WIDTH = 2,\n"
     return f"""    // Generated Parameters for AXI-Full Manager
     //parameter string {bus_prefix}_AXI_Transport = "Ready",
-    parameter integer {bus_prefix}_ID_W_WIDTH = 1,
-    parameter integer {bus_prefix}_ADDR_WIDTH = 32,
+{id_w}    parameter integer {bus_prefix}_ADDR_WIDTH = 32,
     //parameter logic {bus_prefix}_LEN_Present = 1,
     //parameter logic {bus_prefix}_SIZE_Present = 1,
     //parameter logic {bus_prefix}_BURST_Present = 1,
@@ -343,13 +352,11 @@ def get_full_m_parameters(bus_prefix):
     //parameter logic {bus_prefix}_QOS_Present = 1,
     parameter integer {bus_prefix}_DATA_WIDTH = 32,
     //parameter logic {bus_prefix}_WSTRB_Present = 1,
-    parameter integer {bus_prefix}_BRESP_WIDTH = 2,
-    parameter integer {bus_prefix}_ID_R_WIDTH = 1,
+{bresp}    parameter integer {bus_prefix}_ID_R_WIDTH = 1,
 """
 
-def get_full_m_ios(bus_prefix):
-    return f"""    // Generated IOs for AXI-Full Manager
-    output logic {bus_prefix}_awVALID_o,
+def get_full_m_ios(bus_prefix, read_only=False):
+    write_ios = "" if read_only else f"""    output logic {bus_prefix}_awVALID_o,
     input  logic {bus_prefix}_awREADY_i,
     output logic [{bus_prefix}_ID_W_WIDTH-1 : 0] {bus_prefix}_awID_o,
     output logic [{bus_prefix}_ADDR_WIDTH-1:0] {bus_prefix}_awADDR_o,
@@ -369,7 +376,9 @@ def get_full_m_ios(bus_prefix):
     output logic {bus_prefix}_bREADY_o,
     input  logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_bID_i,
     input  logic [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_bRESP_i,
-    output logic {bus_prefix}_arVALID_o,
+"""
+    return f"""    // Generated IOs for AXI-Full Manager
+{write_ios}    output logic {bus_prefix}_arVALID_o,
     input  logic {bus_prefix}_arREADY_i,
     output logic [{bus_prefix}_ID_R_WIDTH-1 : 0] {bus_prefix}_arID_o,
     output logic [{bus_prefix}_ADDR_WIDTH-1 : 0] {bus_prefix}_arADDR_o,
@@ -420,13 +429,16 @@ def get_seg_sizing_logic(bus_prefix, stem, addr, beats, size, burst):
   assign {stem}_seg_rem_next = {stem}_beats - {stem}_seg_beats;
 """
 
-def get_full_m_signals(bus_prefix):
+def get_byte_lanes_name(bus_prefix):
+    return "ActiveByteLanes" + bus_prefix.removeprefix("AXI_M").replace("_", "")
+
+def get_full_m_signals(bus_prefix, read_only=False):
     r_usr_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_r_usr")
     r_cont_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_r_cont")
     w_usr_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_w_usr")
     w_cont_sizing = get_seg_sizing_signals(bus_prefix, f"{bus_prefix}_w_cont")
     return f"""  // Generated signals for AXI-Full Manager
-  localparam logic[2:0] ActiveByteLanes = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
+  localparam logic[2:0] {get_byte_lanes_name(bus_prefix)} = ({bus_prefix}_DATA_WIDTH == 8) ? 3'b000:
                                           ({bus_prefix}_DATA_WIDTH == 16) ? 3'b001:
                                           ({bus_prefix}_DATA_WIDTH == 32) ? 3'b010:
                                           ({bus_prefix}_DATA_WIDTH == 64) ? 3'b011:
@@ -475,7 +487,7 @@ def get_full_m_signals(bus_prefix):
   logic [1:0] {bus_prefix}_usr_rd_resp;
   logic [{bus_prefix}_ID_R_WIDTH-1:0] {bus_prefix}_usr_rd_id;
   logic {bus_prefix}_usr_rd_last;
-
+""" + ("" if read_only else f"""
   // AXI Manager Write Handshake control logic
   logic {bus_prefix}_awVALID_n;
   logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_awID_n;
@@ -531,9 +543,9 @@ def get_full_m_signals(bus_prefix):
   logic {bus_prefix}_usr_wr_resp_ready;
   logic [{bus_prefix}_ID_W_WIDTH-1:0] {bus_prefix}_usr_wr_resp_id;
   logic [{bus_prefix}_BRESP_WIDTH-1:0] {bus_prefix}_usr_wr_resp;
-"""
+""")
 
-def get_full_m_logic(bus_prefix, interface_name=None):
+def get_full_m_logic(bus_prefix, read_only=False):
     r_usr_sizing = get_seg_sizing_logic(
         bus_prefix, f"{bus_prefix}_r_usr", f"{bus_prefix}_usr_cmd_rd_addr",
         get_len_beats(f"{bus_prefix}_usr_cmd_rd_len"),
@@ -655,13 +667,13 @@ def get_full_m_logic(bus_prefix, interface_name=None):
     {bus_prefix}_arID_o, {bus_prefix}_ID_R_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_arADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_arLEN_o, 8, 0, sync_reset, , _n
-    {bus_prefix}_arSIZE_o, 3, ActiveByteLanes, sync_reset, , _n
+    {bus_prefix}_arSIZE_o, 3, {get_byte_lanes_name(bus_prefix)}, sync_reset, , _n
     {bus_prefix}_arBURST_o, 2, 2'b01, sync_reset, , _n
     {bus_prefix}_rREADY_o, 1, 0, sync_reset, , _n
     {bus_prefix}_r_rem_beats, 9, 0, sync_reset, , _n
     {bus_prefix}_r_next_addr, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     */
-
+""" + ("" if read_only else f"""
   // ---------------------------------------------------------------------------
   // Write: 4KB / 256-beat INCR segment sizing (same method as read)
   // ---------------------------------------------------------------------------
@@ -819,7 +831,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
     {bus_prefix}_awID_o, {bus_prefix}_ID_W_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_awADDR_o, {bus_prefix}_ADDR_WIDTH, 0, sync_reset, , _n
     {bus_prefix}_awLEN_o, 8, 0, sync_reset, , _n
-    {bus_prefix}_awSIZE_o, 3, ActiveByteLanes, sync_reset, , _n
+    {bus_prefix}_awSIZE_o, 3, {get_byte_lanes_name(bus_prefix)}, sync_reset, , _n
     {bus_prefix}_awBURST_o, 2, 2'b01, sync_reset, , _n
     {bus_prefix}_wVALID_o, 1, 0, sync_reset, , _n
     {bus_prefix}_wDATA_o, {bus_prefix}_DATA_WIDTH, 0, sync_reset, , _n
@@ -831,7 +843,7 @@ def get_full_m_logic(bus_prefix, interface_name=None):
     {bus_prefix}_w_seg_left, 9, 0, sync_reset, , _n
     {bus_prefix}_w_cur_seg_beats, 9, 0, sync_reset, , _n
     */
-"""
+""")
 
 def write_vs(string, file_name):
     with open(file_name, "w") as file:
