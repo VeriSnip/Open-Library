@@ -2,12 +2,12 @@
 
 # FSM.py generates a finite state machine.
 # To call this script in a Verilog file, use the following pattern:
-#   `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>
+#   `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <one-hot|gray>
 #     State -> Next_state: Condition
 #           -> Next_state              // unconditional (else) transition
 #     */
 # Signals go to FSM_{name}_signals.vs (include it with VS_NO_GENERATE).
-# Defaults: asynchronous reset = arst_i, clock = clk_i, gray encoding.
+# Defaults: asynchronous reset = arst_i, clock = clk_i, one-hot encoding.
 # {name}_error is raised when the state leaves the defined encoding.
 
 import re
@@ -46,7 +46,7 @@ class FSM:
         clock,
         async_reset,
         active_low,
-        encoding="gray",
+        encoding="onehot",
     ):
         self.name = name
         self.states = states
@@ -180,7 +180,7 @@ def parse_header(line):
     active_low = False
     reset = "arst_i"
     clock = "clk_i"
-    encoding = "gray"
+    encoding = "onehot"
 
     if not line or "->" in line:
         return reset, clock, async_reset, active_low, encoding, False
@@ -222,7 +222,7 @@ def parse_header(line):
             if normalized is None:
                 vs_print(
                     ERROR,
-                    f"Unknown FSM encoding '{value}'. Expected 'gray' or 'one-hot'.",
+                    f"Unknown FSM encoding '{value}'. Expected 'one-hot' or 'gray'.",
                 )
                 exit(1)
             encoding = normalized

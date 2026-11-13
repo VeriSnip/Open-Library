@@ -32,9 +32,9 @@ Creates a counter as a register plus a `{name}_next` assign.
 Dependencies: `reg.py`.
 
 ## FSM.py
-Creates a finite state machine from a list of transitions, with Gray or one-hot encoding and an error flag for illegal states. Signals are written to `FSM_{name}_signals.vs`.
+Creates a finite state machine from a list of transitions, with one-hot (default) or Gray encoding and an error flag for illegal states. Signals are written to `FSM_{name}_signals.vs`.
 
-> `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <gray|one-hot>  
+> `include "FSM_{name}.vs" /* [asynchronous] reset = <rst>, clock = <clk>, encoding = <one-hot|gray>  
     State -> Next_state: Condition  
           -> Next_state  
     */
